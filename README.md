@@ -53,5 +53,53 @@
 &nbsp;&nbsp; &nbsp;&nbsp;&nbsp; &nbsp;&nbsp; &nbsp;- ระบบต้องทำงานผ่านอินเทอร์เน็ต<br>
 &nbsp;&nbsp; &nbsp;&nbsp;&nbsp; &nbsp;&nbsp; &nbsp;- ระบบต้องทำงานผ่านเว็บเบราว์เซอร์เท่านั้น<br>
 
+# Project AppDev — Mall Map
+
+โปรเจคกลุ่มสำหรับระบบ Mall Directory มี 2 ส่วนหลัก คือ `frontend-admin` และ `frontend-customer`
+
+---
+
+## 🛠️ Tech Stack
+
+- React + Vite
+- Tailwind CSS v4
+- lucide-react (icons)
+
+---
+
+## 🚀 วิธี Run โปรเจค
+
+### Frontend Admin
+```bash
+cd frontend/frontend-admin
+npm install --legacy-peer-deps
+npm run dev
+```
+
+เปิด browser ที่ → http://localhost:5173
+
+---
+
+## 📁 โครงสร้างโปรเจค
+```
+frontend/
+├── frontend-admin/
+│   ├── src/
+│   │   ├── pages/
+│   │   │   └── RoleSelection.jsx   # หน้าเลือก role (Seller / Map Editor)
+│   │   ├── App.jsx
+│   │   ├── main.jsx
+│   │   └── index.css
+│   ├── package.json
+│   └── vite.config.js
+└── frontend-customer/
+```
+
+---
+
+## 📝 หมายเหตุ
+
+- ใช้ `--legacy-peer-deps` เพราะ Vite 8 ยังไม่ compatible กับ `@tailwindcss/vite` เวอร์ชันล่าสุด
+
 
 
