@@ -5,7 +5,7 @@ def get_connection():
         conn = mysql.connector.connect(
             host="localhost",
             user="root",
-            password="",
+            password="123456",
             database="mallmap"
         )
         if conn.is_connected():
