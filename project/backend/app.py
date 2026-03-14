@@ -7,7 +7,6 @@ app = Flask(__name__)
 def hello():
     return "hello world"
 
-
 @app.route("/testdb")
 def testdb():
 
@@ -17,7 +16,7 @@ def testdb():
     cursor.execute("SELECT 1")
 
     return "Database Connected"
-
+    
 
 if __name__ == "__main__":
     app.run(debug=True)
