@@ -6,8 +6,7 @@ export default function SellerLogin() {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    // TODO: เชื่อม API login จริงทีหลัง
-    alert('Seller Login!')
+    navigate('/seller/dashboard')
   }
 
   return (
