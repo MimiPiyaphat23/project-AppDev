@@ -4,21 +4,21 @@ from middleware_auth import require_role
 
 store_bp = Blueprint("store", __name__)
 
-stores = [
-    {"id": 1, "name": "Nike", "x": 100, "y": 200},
-    {"id": 2, "name": "Adidas", "x": 300, "y": 150}
-]
+# stores = [
+#     {"id": 1, "name": "Nike", "x": 100, "y": 200},
+#     {"id": 2, "name": "Adidas", "x": 300, "y": 150}
+# ] #fortesting without db
 
 @store_bp.route("/stores", methods=["GET"])
 def get_stores():
 
-    # db = connect_db()
-    # cursor = db.cursor(dictionary=True)
+    db = connect_db()
+    cursor = db.cursor(dictionary=True)
 
-    # cursor.execute("SELECT * FROM stores")
+    cursor.execute("SELECT * FROM stores")
 
-    # return jsonify(cursor.fetchall())
-    return jsonify(stores)
+    return jsonify(cursor.fetchall())
+    # return jsonify(stores) #fortesting without db
 
 
 @store_bp.route("/stores", methods=["POST"])
