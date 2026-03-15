@@ -107,8 +107,8 @@ export default function MapEditorMap() {
                                 panRef.current = { x: 0, y: 0 }
                             }}
                             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${currentFloor === floor.id
-                                    ? 'bg-gray-700 text-white border-gray-700'
-                                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                                ? 'bg-gray-700 text-white border-gray-700'
+                                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
                                 }`}
                         >
                             {floor.label}
