@@ -3,7 +3,7 @@ import mysql.connector
 def get_connection():
     try:
         conn = mysql.connector.connect(
-            host="localhost",
+            host="192.168.3.38",# เปลี่ยนเป็นที่อยู่ของฐานข้อมูลของคุณ ใช้เลข ip จะได้เชือมต่อได้จากภายนอก
             user="root",
             password="123456",
             database="mallmap"
