@@ -27,9 +27,8 @@ export default function MapEditorLayout() {
               <button
                 key={item.path}
                 onClick={() => navigate(item.path)}
-                className={`flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive ? 'bg-gray-700 text-white' : 'text-gray-600 hover:bg-gray-100'
-                }`}
+                className={`flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isActive ? 'bg-gray-700 text-white' : 'text-gray-600 hover:bg-gray-100'
+                  }`}
               >
                 <Icon className="w-4 h-4" />
                 {item.label}
@@ -37,14 +36,6 @@ export default function MapEditorLayout() {
             )
           })}
         </nav>
-
-        <button
-          onClick={() => navigate('/')}
-          className="flex items-center gap-3 px-4 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100"
-        >
-          <LogOut className="w-4 h-4" />
-          Logout
-        </button>
       </div>
 
       {/* Main Content */}
