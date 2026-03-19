@@ -1,16 +1,28 @@
 from flask import Blueprint, jsonify
-from db import connect_db
+from db import get_connection # Use standardized connection
 
 map_bp = Blueprint("map", __name__)
 
 @map_bp.route("/map/stores", methods=["GET"])
 def get_map_stores():
+    """
+    Fetches store data specifically for map display.
+    """
+    conn = None
+    cursor = None
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
 
-    db = connect_db()
-    cursor = db.cursor(dictionary=True)
+        # Query aligned with SRS data model and other files
+        cursor.execute("SELECT StoreID, StoreName, PosX, PosY FROM Store")
+        stores = cursor.fetchall()
 
-    cursor.execute("SELECT id,name,x,y FROM stores")
+        return jsonify({"status": "ok", "stores": stores})
 
-    stores = cursor.fetchall()
-
-    return jsonify(stores)
+    except Exception as e:
+        print(f"ERROR GET MAP STORES: {e}")
+        return jsonify({"status": "error", "message": "Internal server error"}), 500
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()

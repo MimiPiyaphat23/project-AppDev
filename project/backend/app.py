@@ -1,4 +1,9 @@
 import sys
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
 # ป้องกันไม่ให้ Python สร้างไฟล์ cache ขยะ (.pyc)
 sys.dont_write_bytecode = True
 
@@ -13,6 +18,8 @@ from store_routes import store_bp
 from product_routes import product_bp
 from favorite_routes import favorite_bp
 from upload_routes import upload_bp
+from user_routes import user_bp
+from category_routes import category_bp
 
 def create_app():
     app = Flask(__name__)
@@ -35,6 +42,8 @@ def create_app():
     app.register_blueprint(map_bp, url_prefix='/api/map')
     app.register_blueprint(favorite_bp, url_prefix='/api/favorite')
     app.register_blueprint(upload_bp, url_prefix='/api/upload')
+    app.register_blueprint(user_bp, url_prefix='/api/users')
+    app.register_blueprint(category_bp, url_prefix='/api/categories')
 
     # ==========================================
     # Test Routes (สำหรับเช็คว่า Server ล่มไหม)

@@ -1,36 +1,42 @@
 from flask import Blueprint, jsonify, request
-from db import connect_db
+from db import get_connection # Use standardized connection
 
 mall_bp = Blueprint("mall", __name__)
 
-#ดึงข้อมูลห้างสรรพสินค้าทั้งหมด
+# Gets all malls
 @mall_bp.route('/', methods=['GET'])
 def get_malls():
-    conn = connect_db()
-    cursor = conn.cursor(dictionary=True)
+    conn = None
+    cursor = None
     try:
-        cursor.execute("SELECT * FROM malls")
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        # Assuming the table is 'Mall', not 'malls'
+        cursor.execute("SELECT * FROM Mall")
         malls = cursor.fetchall()
-        return jsonify({"success": True, "data": malls}), 200
+        return jsonify({"status": "ok", "data": malls}), 200
     except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
     finally:
-        cursor.close()
-        conn.close()
+        if cursor: cursor.close()
+        if conn: conn.close()
 
-#ดึงข้อมูลห้างสรรพสินค้าตาม ID
+# Gets a single mall by ID
 @mall_bp.route('/<int:mall_id>', methods=['GET'])
 def get_mall_by_id(mall_id):
-    conn = connect_db()
-    cursor = conn.cursor(dictionary=True)
+    conn = None
+    cursor = None
     try:
-        cursor.execute("SELECT * FROM malls WHERE id = %s", (mall_id,))
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        # Assuming the PK is 'MallID'
+        cursor.execute("SELECT * FROM Mall WHERE MallID = %s", (mall_id,))
         mall = cursor.fetchone()
         if mall:
-            return jsonify({"success": True, "data": mall}), 200
-        return jsonify({"success": False, "message": "Mall not found"}), 404
+            return jsonify({"status": "ok", "data": mall}), 200
+        return jsonify({"status": "error", "message": "Mall not found"}), 404
     except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
     finally:
-        cursor.close()
-        conn.close()
+        if cursor: cursor.close()
+        if conn: conn.close()
