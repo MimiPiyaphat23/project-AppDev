@@ -4,6 +4,7 @@ import bcrypt
 from datetime import datetime, timedelta
 from functools import wraps
 from db import get_connection
+from logger import log # Import the logger
 
 auth_bp = Blueprint('auth_bp', __name__)
 
@@ -82,11 +83,12 @@ def register_user():
         sql = "INSERT INTO User (UserName, Email, PasswordHash, RoleID) VALUES (%s, %s, %s, %s)"
         cursor.execute(sql, (username, email, hashed_password.decode('utf-8'), role_id))
         conn.commit()
-
+        
+        log.info(f"New user registered: {username}")
         return jsonify({"status": "ok", "message": "User registered successfully as Customer"}), 201
 
     except Exception as e:
-        print(f"ERROR REGISTER USER: {e}")
+        log.error(f"ERROR REGISTER USER: {e}")
         return jsonify({"status": "error", "message": "An internal server error occurred"}), 500
     finally:
         if cursor: cursor.close()
@@ -146,6 +148,8 @@ def login():
             if user['RoleName'] == 'StoreOwner':
                 user_response['StoreID'] = user['StoreID']
 
+            log.info(f"User '{user['UserName']}' logged in successfully as '{user['RoleName']}'.")
+
             return jsonify({
                 "status": "ok",
                 "message": "Login successful",
@@ -156,7 +160,7 @@ def login():
             return jsonify({"status": "error", "message": "Invalid username or password"}), 401
 
     except Exception as e:
-        print(f"ERROR LOGIN: {e}")
+        log.error(f"ERROR LOGIN: {e}")
         return jsonify({"status": "error", "message": "An internal server error occurred"}), 500
     finally:
         if cursor: cursor.close()
