@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from db import get_connection
 from auth_routes import token_required
+from logger import log
 
 product_bp = Blueprint("product", __name__)
 
@@ -23,7 +24,7 @@ def get_all_products():
         products = cursor.fetchall()
         return jsonify({"status": "ok", "products": products})
     except Exception as e:
-        print(f"ERROR GET ALL PRODUCTS: {e}")
+        log.error(f"ERROR GET ALL PRODUCTS: {e}")
         return jsonify({"status": "error", "message": "Internal server error"}), 500
     finally:
         if cursor: cursor.close()
@@ -44,12 +45,33 @@ def add_product(current_user):
     cursor = None
     try:
         data = request.get_json()
-        if not data or not data.get('ProductName') or data.get('Price') is None:
-            return jsonify({"status": "error", "message": "ProductName and Price are required"}), 400
+        
+        # --- SRS 7.4: Data Validation ---
+        errors = {}
+        product_name = data.get('ProductName')
+        price = data.get('Price')
+        stock = data.get('StockQuantity', 0)
+
+        if not product_name or not product_name.strip():
+            errors['ProductName'] = 'ProductName cannot be empty.'
+        
+        try:
+            if float(price) < 0:
+                errors['Price'] = 'Price must be a non-negative number.'
+        except (ValueError, TypeError):
+            errors['Price'] = 'Price must be a valid number.'
+
+        try:
+            if int(stock) < 0:
+                errors['StockQuantity'] = 'StockQuantity must be a non-negative integer.'
+        except (ValueError, TypeError):
+            errors['StockQuantity'] = 'StockQuantity must be a valid integer.'
+            
+        if errors:
+            return jsonify({"status": "error", "message": "Validation failed", "errors": errors}), 400
 
         role = current_user.get('role')
         
-        # --- Security & SRS Logic ---
         if role == 'StoreOwner':
             store_id = current_user.get('store_id')
             if not store_id:
@@ -79,10 +101,13 @@ def add_product(current_user):
         cursor.execute(sql, params)
         conn.commit()
         
-        return jsonify({"status": "ok", "message": "Product added successfully", "product_id": cursor.lastrowid}), 201
+        product_id = cursor.lastrowid
+        log.info(f"User '{current_user['user_id']}' ({current_user['role']}) created new product. ProductID: {product_id}, Name: '{data.get('ProductName')}'.")
+        
+        return jsonify({"status": "ok", "message": "Product added successfully", "product_id": product_id}), 201
 
     except Exception as e:
-        print(f"ERROR ADD PRODUCT: {e}")
+        log.error(f"ERROR ADD PRODUCT: {e}")
         return jsonify({"status": "error", "message": "Internal server error"}), 500
     finally:
         if cursor: cursor.close()
@@ -105,6 +130,27 @@ def update_product(current_user, product_id):
         data = request.get_json()
         if not data:
             return jsonify({"status": "error", "message": "No update data provided"}), 400
+            
+        errors = {}
+        if 'ProductName' in data and (not data['ProductName'] or not data['ProductName'].strip()):
+            errors['ProductName'] = 'ProductName cannot be empty.'
+        
+        if 'Price' in data:
+            try:
+                if float(data['Price']) < 0:
+                    errors['Price'] = 'Price must be a non-negative number.'
+            except (ValueError, TypeError):
+                errors['Price'] = 'Price must be a valid number.'
+
+        if 'StockQuantity' in data:
+            try:
+                if int(data['StockQuantity']) < 0:
+                    errors['StockQuantity'] = 'StockQuantity must be a non-negative integer.'
+            except (ValueError, TypeError):
+                errors['StockQuantity'] = 'StockQuantity must be a valid integer.'
+
+        if errors:
+            return jsonify({"status": "error", "message": "Validation failed", "errors": errors}), 400
 
         role = current_user.get('role')
         
@@ -139,10 +185,11 @@ def update_product(current_user, product_id):
         if cursor.rowcount == 0:
             return jsonify({"status": "error", "message": "Product not found or you do not have permission to edit it"}), 404
         
+        log.info(f"User '{current_user['user_id']}' ({current_user['role']}) updated product. ProductID: {product_id}.")
         return jsonify({"status": "ok", "message": "Product updated successfully"})
 
     except Exception as e:
-        print(f"ERROR UPDATE PRODUCT: {e}")
+        log.error(f"ERROR UPDATE PRODUCT: {e}")
         return jsonify({"status": "error", "message": "Internal server error"}), 500
     finally:
         if cursor: cursor.close()
@@ -184,9 +231,10 @@ def delete_product(current_user, product_id):
         if cursor.rowcount == 0:
             return jsonify({"status": "error", "message": "Product not found or you do not have permission to delete it"}), 404
 
+        log.info(f"User '{current_user['user_id']}' ({current_user['role']}) deleted product. ProductID: {product_id}.")
         return jsonify({"status": "ok", "message": "Product deleted successfully"})
     except Exception as e:
-        print(f"ERROR DELETE PRODUCT: {e}")
+        log.error(f"ERROR DELETE PRODUCT: {e}")
         return jsonify({"status": "error", "message": "Internal server error"}), 500
     finally:
         if cursor: cursor.close()

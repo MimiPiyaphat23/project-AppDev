@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 import bcrypt
 from db import get_connection
 from auth_routes import token_required
+from logger import log
 
 user_bp = Blueprint('user_bp', __name__)
 
@@ -31,7 +32,7 @@ def get_users(current_user):
         return jsonify({"status": "ok", "users": users})
 
     except Exception as e:
-        print(f"ERROR GET USERS: {e}")
+        log.error(f"ERROR GET USERS: {e}")
         return jsonify({"status": "error", "message": "An internal server error occurred"}), 500
     finally:
         if cursor: cursor.close()
@@ -47,16 +48,26 @@ def create_store_owner(current_user):
     cursor = None
     try:
         data = request.get_json()
-        if not data or not data.get('UserName') or not data.get('Password') or not data.get('StoreID'):
-            return jsonify({"status": "error", "message": "UserName, Password, and StoreID are required"}), 400
-
+        
+        errors = {}
         username = data.get('UserName')
-        password = data.get('Password').encode('utf-8')
+        password = data.get('Password')
         store_id = data.get('StoreID')
+
+        if not username or not username.strip():
+            errors['UserName'] = 'UserName cannot be empty.'
+        if not password or not password.strip():
+            errors['Password'] = 'Password cannot be empty.'
+        if not store_id:
+            errors['StoreID'] = 'StoreID is required.'
+        
+        if errors:
+            return jsonify({"status": "error", "message": "Validation failed", "errors": errors}), 400
+
         email = data.get('Email') # Optional
 
         # Hash the password
-        hashed_password = bcrypt.hashpw(password, bcrypt.gensalt())
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
 
         conn = get_connection()
         cursor = conn.cursor()
@@ -81,10 +92,11 @@ def create_store_owner(current_user):
         cursor.execute(sql, (username, email, hashed_password.decode('utf-8'), role_id, store_id))
         conn.commit()
         
+        log.info(f"Admin '{current_user['user_id']}' created new StoreOwner. UserName: {username}, StoreID: {store_id}.")
         return jsonify({"status": "ok", "message": "StoreOwner created successfully"}), 201
 
     except Exception as e:
-        print(f"ERROR CREATE STORE OWNER: {e}")
+        log.error(f"ERROR CREATE STORE OWNER: {e}")
         # A more specific error for foreign key constraint failure
         if 'foreign key constraint fails' in str(e).lower():
             return jsonify({"status": "error", "message": f"Invalid StoreID: {store_id} does not exist."}), 400
@@ -139,9 +151,10 @@ def update_user(current_user, user_id):
         if cursor.rowcount == 0:
             return jsonify({"status": "error", "message": "User not found"}), 404
         
+        log.info(f"Admin '{current_user['user_id']}' updated user. UserID: {user_id}.")
         return jsonify({"status": "ok", "message": "User updated successfully"})
     except Exception as e:
-        print(f"ERROR UPDATE USER: {e}")
+        log.error(f"ERROR UPDATE USER: {e}")
         return jsonify({"status": "error", "message": "An internal server error occurred"}), 500
     finally:
         if cursor: cursor.close()
@@ -169,10 +182,11 @@ def delete_user(current_user, user_id):
 
         if cursor.rowcount == 0:
             return jsonify({"status": "error", "message": "User not found"}), 404
-
+        
+        log.info(f"Admin '{current_user['user_id']}' deleted user. UserID: {user_id}.")
         return jsonify({"status": "ok", "message": "User deleted successfully"}), 200
     except Exception as e:
-        print(f"ERROR DELETE USER: {e}")
+        log.error(f"ERROR DELETE USER: {e}")
         return jsonify({"status": "error", "message": "An internal server error occurred"}), 500
     finally:
         if cursor: cursor.close()

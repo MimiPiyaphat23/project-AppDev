@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from db import get_connection
 from auth_routes import token_required
+from logger import log
 
 store_bp = Blueprint("store", __name__)
 
@@ -25,7 +26,7 @@ def get_stores():
 
         return jsonify({"status": "ok", "stores": stores}), 200
     except Exception as e:
-        print(f"ERROR GET STORES: {e}")
+        log.error(f"ERROR GET STORES: {e}")
         return jsonify({"status": "error", "message": "An internal server error occurred"}), 500
     finally:
         if cursor: cursor.close()
@@ -41,8 +42,10 @@ def create_store(current_user):
     cursor = None
     try:
         data = request.get_json()
-        if not data or not data.get("StoreName"):
-            return jsonify({"status": "error", "message": "StoreName is a required field"}), 400
+        
+        store_name = data.get("StoreName")
+        if not store_name or not store_name.strip():
+            return jsonify({"status": "error", "message": "Validation failed", "errors": { "StoreName": "StoreName cannot be empty." }}), 400
 
         conn = get_connection()
         cursor = conn.cursor()
@@ -66,13 +69,16 @@ def create_store(current_user):
         cursor.execute(sql, params)
         conn.commit()
 
+        store_id = cursor.lastrowid
+        log.info(f"Admin '{current_user['user_id']}' created new store. StoreID: {store_id}, Name: '{data.get('StoreName')}'.")
+
         return jsonify({
             "status": "ok", 
             "message": "Store created successfully",
-            "store_id": cursor.lastrowid
+            "store_id": store_id
         }), 201
     except Exception as e:
-        print(f"ERROR CREATE STORE: {e}")
+        log.error(f"ERROR CREATE STORE: {e}")
         return jsonify({"status": "error", "message": "An internal server error occurred"}), 500
     finally:
         if cursor: cursor.close()
@@ -90,6 +96,9 @@ def update_store(current_user, store_id):
         data = request.get_json()
         if not data:
             return jsonify({"status": "error", "message": "No update data provided"}), 400
+            
+        if 'StoreName' in data and (not data['StoreName'] or not data['StoreName'].strip()):
+            return jsonify({"status": "error", "message": "Validation failed", "errors": { "StoreName": "StoreName cannot be empty." }}), 400
 
         update_fields = []
         params = []
@@ -113,9 +122,10 @@ def update_store(current_user, store_id):
         if cursor.rowcount == 0:
             return jsonify({"status": "error", "message": "Store not found"}), 404
         
+        log.info(f"Admin '{current_user['user_id']}' updated store. StoreID: {store_id}.")
         return jsonify({"status": "ok", "message": "Store updated successfully"})
     except Exception as e:
-        print(f"ERROR UPDATE STORE: {e}")
+        log.error(f"ERROR UPDATE STORE: {e}")
         return jsonify({"status": "error", "message": "An internal server error occurred"}), 500
     finally:
         if cursor: cursor.close()
@@ -141,10 +151,49 @@ def delete_store(current_user, store_id):
         if cursor.rowcount == 0:
             return jsonify({"status": "error", "message": "Store not found or was already deleted"}), 404
 
+        log.info(f"Admin '{current_user['user_id']}' deleted store. StoreID: {store_id}.")
         return jsonify({"status": "ok", "message": "Store and associated products deleted successfully"}), 200
     except Exception as e:
-        print(f"ERROR DELETE STORE: {e}")
+        log.error(f"ERROR DELETE STORE: {e}")
         return jsonify({"status": "error", "message": "An internal server error occurred"}), 500
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
+
+# ==========================================
+# 5. Get Products by Store ID (Public) - NEW
+# ==========================================
+@store_bp.route("/<int:store_id>/products", methods=["GET"])
+def get_products_by_store(store_id):
+    """
+    Returns a list of all products for a specific store.
+    This route is public.
+    """
+    conn = None
+    cursor = None
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        
+        # Check if the store exists first
+        cursor.execute("SELECT StoreID FROM Store WHERE StoreID = %s", (store_id,))
+        if not cursor.fetchone():
+            return jsonify({"status": "error", "message": "Store not found"}), 404
+            
+        # Select all relevant product fields as per SRS
+        sql = """
+            SELECT ProductID, ProductName, Price, StockQuantity, ProductImage, StoreID 
+            FROM Product 
+            WHERE StoreID = %s
+        """
+        cursor.execute(sql, (store_id,))
+        products = cursor.fetchall()
+        
+        return jsonify({"status": "ok", "products": products})
+        
+    except Exception as e:
+        log.error(f"ERROR GET PRODUCTS BY STORE: {e}")
+        return jsonify({"status": "error", "message": "Internal server error"}), 500
     finally:
         if cursor: cursor.close()
         if conn: conn.close()
