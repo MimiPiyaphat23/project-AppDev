@@ -21,6 +21,7 @@ from upload_routes import upload_bp
 from user_routes import user_bp
 from category_routes import category_bp
 from mall_routes import mall_bp
+from floor_routes import floor_bp # <--- ADDED
 
 def create_app():
     app = Flask(__name__)
@@ -38,14 +39,15 @@ def create_app():
     # ==========================================
     # แนะนำให้ใส่ url_prefix เพื่อให้ API ดูเป็นระบบ เช่น http://localhost:5000/api/auth/login
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
-    app.register_blueprint(store_bp, url_prefix='/api/store')
-    app.register_blueprint(product_bp, url_prefix='/api/product')
+    app.register_blueprint(store_bp, url_prefix='/api/stores') # Changed prefix to /stores
+    app.register_blueprint(product_bp, url_prefix='/api/products') # Changed prefix to /products
     app.register_blueprint(map_bp, url_prefix='/api/map')
-    app.register_blueprint(favorite_bp, url_prefix='/api/favorite')
+    app.register_blueprint(favorite_bp, url_prefix='/api/favorites') # Changed prefix to /favorites
     app.register_blueprint(upload_bp, url_prefix='/api/upload')
     app.register_blueprint(user_bp, url_prefix='/api/users')
     app.register_blueprint(category_bp, url_prefix='/api/categories')
     app.register_blueprint(mall_bp, url_prefix='/api/malls')
+    app.register_blueprint(floor_bp, url_prefix='/api/floors') # <--- ADDED
 
     # ==========================================
     # Test Routes (สำหรับเช็คว่า Server ล่มไหม)
