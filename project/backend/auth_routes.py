@@ -58,12 +58,13 @@ def register_user():
     cursor = None
     try:
         data = request.get_json()
-        if not data or not data.get('UserName') or not data.get('Password'):
-            return jsonify({"status": "error", "message": "Username and Password are required"}), 400
+        # --- API Compliance: Use 'username', 'email', 'password' from frontend ---
+        if not data or not data.get('username') or not data.get('password') or not data.get('email'):
+            return jsonify({"status": "error", "message": "Username, Email, and Password are required"}), 400
 
-        username = data.get('UserName')
-        email = data.get('Email') # Email is optional but good to have
-        password = data.get('Password').encode('utf-8')
+        username = data.get('username')
+        email = data.get('email')
+        password = data.get('password').encode('utf-8')
         
         # --- Security Improvement: Default role is 'Customer' ---
         # Assuming RoleID for 'Customer' is 3. This prevents users from self-assigning 'Admin' roles.
@@ -75,17 +76,18 @@ def register_user():
         conn = get_connection()
         cursor = conn.cursor()
         
-        # Check if username already exists
-        cursor.execute("SELECT UserID FROM User WHERE UserName = %s", (username,))
+        # Check if username or email already exists
+        cursor.execute("SELECT UserID FROM User WHERE UserName = %s OR Email = %s", (username, email))
         if cursor.fetchone():
-            return jsonify({"status": "error", "message": "Username already exists"}), 409
+            return jsonify({"status": "error", "message": "Username or Email already exists"}), 409
 
         sql = "INSERT INTO User (UserName, Email, PasswordHash, RoleID) VALUES (%s, %s, %s, %s)"
         cursor.execute(sql, (username, email, hashed_password.decode('utf-8'), role_id))
         conn.commit()
         
         log.info(f"New user registered: {username}")
-        return jsonify({"status": "ok", "message": "User registered successfully as Customer"}), 201
+        # --- API Compliance: Return success status and message ---
+        return jsonify({"success": True, "message": "User registered successfully as Customer"}), 201
 
     except Exception as e:
         log.error(f"ERROR REGISTER USER: {e}")
@@ -107,23 +109,24 @@ def login():
     cursor = None
     try:
         data = request.get_json()
-        if not data or not data.get('UserName') or not data.get('Password'):
-            return jsonify({"status": "error", "message": "Missing username or password"}), 400
+        # --- API Compliance: Use 'email' and 'password' from frontend ---
+        if not data or not data.get('email') or not data.get('password'):
+            return jsonify({"status": "error", "message": "Missing email or password"}), 400
 
-        username = data.get('UserName')
-        password = data.get('Password').encode('utf-8')
+        email = data.get('email')
+        password = data.get('password').encode('utf-8')
 
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
 
-        # --- SRS Compliance: Fetch StoreID for StoreOwners ---
+        # --- SRS Compliance: Fetch StoreID for StoreOwners, login via Email ---
         sql = """
-            SELECT u.UserID, u.UserName, u.PasswordHash, u.StoreID, r.RoleName
+            SELECT u.UserID, u.UserName, u.Email, u.PasswordHash, u.StoreID, r.RoleName
             FROM User u
             JOIN Role r ON u.RoleID = r.RoleID
-            WHERE u.UserName = %s
+            WHERE u.Email = %s
         """
-        cursor.execute(sql, (username,))
+        cursor.execute(sql, (email,))
         user = cursor.fetchone()
 
         if user and bcrypt.checkpw(password, user['PasswordHash'].encode('utf-8')):
@@ -139,28 +142,73 @@ def login():
 
             token = jwt.encode(payload, current_app.config['SECRET_KEY'], algorithm='HS256')
 
-            # Prepare user data for the response
+            # --- API Compliance: Prepare user data for the response matching frontend ---
             user_response = {
-                "UserID": user['UserID'],
-                "UserName": user['UserName'],
-                "Role": user['RoleName']
+                "id": user['UserID'],
+                "username": user['UserName'],
+                "email": user['Email'],
+                "role": user['RoleName']
             }
             if user['RoleName'] == 'StoreOwner':
-                user_response['StoreID'] = user['StoreID']
+                user_response['store_id'] = user['StoreID']
 
             log.info(f"User '{user['UserName']}' logged in successfully as '{user['RoleName']}'.")
 
+            # --- API Compliance: Return response structure matching frontend ---
             return jsonify({
-                "status": "ok",
+                "success": True,
                 "message": "Login successful",
                 "token": token,
                 "user": user_response
             })
         else:
-            return jsonify({"status": "error", "message": "Invalid username or password"}), 401
+            return jsonify({"success": False, "message": "Invalid email or password"}), 401
 
     except Exception as e:
         log.error(f"ERROR LOGIN: {e}")
+        return jsonify({"status": "error", "message": "An internal server error occurred"}), 500
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
+
+# ==========================================
+# 4. Get User Profile Route
+# ==========================================
+@auth_bp.route('/profile', methods=['GET'])
+@token_required(allowed_roles=['Admin', 'StoreOwner', 'Customer'])
+def get_profile(current_user):
+    """
+    Retrieves the profile of the currently logged-in user using their token.
+    """
+    conn = None
+    cursor = None
+    try:
+        user_id = current_user.get('user_id')
+        if not user_id:
+            return jsonify({"status": "error", "message": "Invalid token data"}), 400
+
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        # Fetch user details from the database
+        sql = """
+            SELECT u.UserID as id, u.UserName as username, u.Email as email, r.RoleName as role, u.StoreID as store_id
+            FROM User u
+            JOIN Role r ON u.RoleID = r.RoleID
+            WHERE u.UserID = %s
+        """
+        cursor.execute(sql, (user_id,))
+        user = cursor.fetchone()
+
+        if not user:
+            return jsonify({"success": False, "message": "User not found"}), 404
+
+        log.info(f"Fetched profile for user_id: {user_id}")
+        # --- API Compliance: Return user object as 'user' ---
+        return jsonify({"success": True, "user": user})
+
+    except Exception as e:
+        log.error(f"ERROR FETCHING PROFILE: {e}")
         return jsonify({"status": "error", "message": "An internal server error occurred"}), 500
     finally:
         if cursor: cursor.close()
