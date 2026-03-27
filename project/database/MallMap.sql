@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS `MallMAP`.`Store` (
   `UserID` INT NOT NULL,
   `StoreName` VARCHAR(255) NOT NULL,
   `StoreCategoryID` INT NOT NULL,
-  `Phone` VARCHAR(20) NOT NULL,
+  `Description` VARCHAR(255) NOT NULL,
   `LogoURL` VARCHAR(255) NOT NULL,
   `FloorID` INT NOT NULL,
   `PosX` FLOAT NOT NULL,
@@ -127,7 +127,7 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 -- Table `MallMAP`.`Category`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `MallMAP`.`Category` (
+CREATE TABLE IF NOT EXISTS `MallMAP`.`ProductCategory` (
   `CategoryID` INT NOT NULL AUTO_INCREMENT,
   `CategoryName` VARCHAR(255) NOT NULL,
   PRIMARY KEY (`CategoryID`))
