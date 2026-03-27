@@ -14,13 +14,13 @@ SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,N
 -- -----------------------------------------------------
 -- Schema MallMAP
 -- -----------------------------------------------------
-CREATE SCHEMA IF NOT EXISTS `mallmap` DEFAULT CHARACTER SET utf8 ;
-USE `mallmap` ;
+CREATE SCHEMA IF NOT EXISTS `MallMAP` DEFAULT CHARACTER SET utf8 ;
+USE `MallMAP` ;
 
 -- -----------------------------------------------------
 -- Table `MallMAP`.`Role`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `mallmap`.`Role` (
+CREATE TABLE IF NOT EXISTS `MallMAP`.`Role` (
   `RoleID` INT NOT NULL AUTO_INCREMENT,
   `RoleName` VARCHAR(45) NOT NULL,
   PRIMARY KEY (`RoleID`))
@@ -30,22 +30,21 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 -- Table `MallMAP`.`User`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `mallmap`.`User` (
+CREATE TABLE IF NOT EXISTS `MallMAP`.`User` (
   `UserID` INT NOT NULL AUTO_INCREMENT,
   `UserName` VARCHAR(255) NOT NULL,
   `Email` VARCHAR(255) NOT NULL,
   `PasswordHash` VARCHAR(255) NOT NULL,
   `RoleID` INT NOT NULL,
-  `StoreID` INT NULL,
   `CreatedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `UpdatedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`UserID`),
+  UNIQUE INDEX `UersID_UNIQUE` (`UserID` ASC) VISIBLE,
   UNIQUE INDEX `UsersName_UNIQUE` (`UserName` ASC) VISIBLE,
-  UNIQUE INDEX `Email_UNIQUE` (`Email` ASC) VISIBLE,
   INDEX `fk_Users_Role1_idx` (`RoleID` ASC) VISIBLE,
   CONSTRAINT `fk_Users_Role1`
-    FOREIGN KEY (`RoleID`) 
-    REFERENCES `mallmap`.`Role` (`RoleID`)
+    FOREIGN KEY (`RoleID`)
+    REFERENCES `MallMAP`.`Role` (`RoleID`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
@@ -54,7 +53,7 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 -- Table `MallMAP`.`StoreCategory`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `mallmap`.`StoreCategory` (
+CREATE TABLE IF NOT EXISTS `MallMAP`.`StoreCategory` (
   `StoreCategoryID` INT NOT NULL AUTO_INCREMENT,
   `StoreCategoryName` VARCHAR(45) NOT NULL,
   PRIMARY KEY (`StoreCategoryID`))
@@ -64,7 +63,7 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 -- Table `MallMAP`.`Mall`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `mallmap`.`Mall` (
+CREATE TABLE IF NOT EXISTS `MallMAP`.`Mall` (
   `MallID` INT NOT NULL AUTO_INCREMENT,
   `Mallname` VARCHAR(255) NOT NULL,
   `Location` VARCHAR(255) NOT NULL,
@@ -75,7 +74,7 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 -- Table `MallMAP`.`Floor`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `mallmap`.`Floor` (
+CREATE TABLE IF NOT EXISTS `MallMAP`.`Floor` (
   `FloorID` INT NOT NULL AUTO_INCREMENT,
   `FloorName` VARCHAR(45) NOT NULL,
   `MallID` INT NOT NULL,
@@ -84,7 +83,7 @@ CREATE TABLE IF NOT EXISTS `mallmap`.`Floor` (
   INDEX `fk_floor_Mall1_idx` (`MallID` ASC) VISIBLE,
   CONSTRAINT `fk_floor_Mall1`
     FOREIGN KEY (`MallID`)
-    REFERENCES `mallmap`.`Mall` (`MallID`)
+    REFERENCES `MallMAP`.`Mall` (`MallID`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
@@ -93,7 +92,7 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 -- Table `MallMAP`.`Store`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `mallmap`.`Store` (
+CREATE TABLE IF NOT EXISTS `MallMAP`.`Store` (
   `StoreID` INT NOT NULL AUTO_INCREMENT,
   `UserID` INT NOT NULL,
   `StoreName` VARCHAR(255) NOT NULL,
@@ -103,24 +102,23 @@ CREATE TABLE IF NOT EXISTS `mallmap`.`Store` (
   `FloorID` INT NOT NULL,
   `PosX` FLOAT NOT NULL,
   `PosY` FLOAT NOT NULL,
-  `OpeningHours` VARCHAR(100) NULL,
   PRIMARY KEY (`StoreID`),
   INDEX `fk_Store_StoreCategory1_idx` (`StoreCategoryID` ASC) VISIBLE,
   INDEX `fk_Store_User1_idx` (`UserID` ASC) VISIBLE,
   INDEX `fk_Store_floor1_idx` (`FloorID` ASC) VISIBLE,
   CONSTRAINT `fk_Store_StoreCategory1`
     FOREIGN KEY (`StoreCategoryID`)
-    REFERENCES `mallmap`.`StoreCategory` (`StoreCategoryID`)
+    REFERENCES `MallMAP`.`StoreCategory` (`StoreCategoryID`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION,
   CONSTRAINT `fk_Store_User1`
     FOREIGN KEY (`UserID`)
-    REFERENCES `mallmap`.`User` (`UserID`)
+    REFERENCES `MallMAP`.`User` (`UserID`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION,
   CONSTRAINT `fk_Store_floor1`
     FOREIGN KEY (`FloorID`)
-    REFERENCES `mallmap`.`Floor` (`FloorID`)
+    REFERENCES `MallMAP`.`Floor` (`FloorID`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
@@ -129,7 +127,7 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 -- Table `MallMAP`.`Category`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `mallmap`.`Category` (
+CREATE TABLE IF NOT EXISTS `MallMAP`.`Category` (
   `CategoryID` INT NOT NULL AUTO_INCREMENT,
   `CategoryName` VARCHAR(255) NOT NULL,
   PRIMARY KEY (`CategoryID`))
@@ -139,7 +137,7 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 -- Table `MallMAP`.`Product`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `mallmap`.`Product` (
+CREATE TABLE IF NOT EXISTS `MallMAP`.`Product` (
   `ProductID` INT NOT NULL AUTO_INCREMENT,
   `ProductName` VARCHAR(255) NOT NULL,
   `Price` DECIMAL(10,2) NOT NULL,
@@ -153,12 +151,12 @@ CREATE TABLE IF NOT EXISTS `mallmap`.`Product` (
   INDEX `fk_Product_Store1_idx` (`StoreID` ASC) VISIBLE,
   CONSTRAINT `fk_Product_Category1`
     FOREIGN KEY (`CategoryID`)
-    REFERENCES `mallmap`.`Category` (`CategoryID`)
+    REFERENCES `MallMAP`.`Category` (`CategoryID`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION,
   CONSTRAINT `fk_Product_Store1`
     FOREIGN KEY (`StoreID`)
-    REFERENCES `mallmap`.`Store` (`StoreID`)
+    REFERENCES `MallMAP`.`Store` (`StoreID`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
@@ -167,21 +165,23 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 -- Table `MallMAP`.`FavoriteStore`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `mallmap`.`FavoriteStore` (
+CREATE TABLE IF NOT EXISTS `MallMAP`.`FavoriteStore` (
   `FavoriteStoreID` INT NOT NULL AUTO_INCREMENT,
   `UserID` INT NOT NULL,
   `StoreID` INT NOT NULL,
   PRIMARY KEY (`FavoriteStoreID`),
   INDEX `fk_FavoriteStore_User1_idx` (`UserID` ASC) VISIBLE,
   INDEX `fk_FavoriteStore_Store1_idx` (`StoreID` ASC) VISIBLE,
+  UNIQUE INDEX `UserID_UNIQUE` (`UserID` ASC) VISIBLE,
+  UNIQUE INDEX `StoreID_UNIQUE` (`StoreID` ASC) VISIBLE,
   CONSTRAINT `fk_FavoriteStore_User1`
     FOREIGN KEY (`UserID`)
-    REFERENCES `mallmap`.`User` (`UserID`)
+    REFERENCES `MallMAP`.`User` (`UserID`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION,
   CONSTRAINT `fk_FavoriteStore_Store1`
     FOREIGN KEY (`StoreID`)
-    REFERENCES `mallmap`.`Store` (`StoreID`)
+    REFERENCES `MallMAP`.`Store` (`StoreID`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
@@ -190,21 +190,23 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 -- Table `MallMAP`.`FavoriteProduct`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `mallmap`.`FavoriteProduct` (
+CREATE TABLE IF NOT EXISTS `MallMAP`.`FavoriteProduct` (
   `FavoriteProductID` INT NOT NULL AUTO_INCREMENT,
   `UserID` INT NOT NULL,
   `ProductID` INT NOT NULL,
   PRIMARY KEY (`FavoriteProductID`),
   INDEX `fk_FavoriteProduct_User1_idx` (`UserID` ASC) VISIBLE,
   INDEX `fk_FavoriteProduct_Product1_idx` (`ProductID` ASC) VISIBLE,
+  UNIQUE INDEX `UserID_UNIQUE` (`UserID` ASC) VISIBLE,
+  UNIQUE INDEX `ProductID_UNIQUE` (`ProductID` ASC) VISIBLE,
   CONSTRAINT `fk_FavoriteProduct_User1`
     FOREIGN KEY (`UserID`)
-    REFERENCES `mallmap`.`User` (`UserID`)
+    REFERENCES `MallMAP`.`User` (`UserID`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION,
   CONSTRAINT `fk_FavoriteProduct_Product1`
     FOREIGN KEY (`ProductID`)
-    REFERENCES `mallmap`.`Product` (`ProductID`)
+    REFERENCES `MallMAP`.`Product` (`ProductID`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
