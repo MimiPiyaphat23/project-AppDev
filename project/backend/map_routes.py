@@ -15,7 +15,7 @@ def get_map_stores():
         cursor = conn.cursor(dictionary=True)
 
         # Query aligned with SRS data model and other files
-        cursor.execute("SELECT StoreID, StoreName, PosX, PosY FROM Store")
+        cursor.execute("SELECT id, name, pos_x, pos_y FROM Store")
         stores = cursor.fetchall()
 
         return jsonify({"status": "ok", "stores": stores})

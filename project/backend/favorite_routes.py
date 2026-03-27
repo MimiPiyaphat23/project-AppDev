@@ -26,11 +26,11 @@ def get_favorite_stores(current_user):
         cursor = conn.cursor(dictionary=True)
 
         sql = """
-            SELECT s.StoreID, s.StoreName, s.LogoURL, c.StoreCategoryName as CategoryName
+            SELECT s.id, s.name, s.logo_url, c.name as category_name
             FROM FavoriteStore fs
-            JOIN Store s ON fs.StoreID = s.StoreID
-            LEFT JOIN StoreCategory c ON s.StoreCategoryID = c.StoreCategoryID
-            WHERE fs.UserID = %s
+            JOIN Store s ON fs.store_id = s.id
+            LEFT JOIN Category c ON s.category_id = c.id
+            WHERE fs.user_id = %s
         """
         cursor.execute(sql, (user_id,))
         stores = cursor.fetchall()
@@ -70,7 +70,7 @@ def add_favorite_store(current_user):
         cursor = conn.cursor()
 
         # Assuming the table is named FavoriteStore
-        sql = "INSERT IGNORE INTO FavoriteStore (UserID, StoreID) VALUES (%s, %s)"
+        sql = "INSERT IGNORE INTO FavoriteStore (user_id, store_id) VALUES (%s, %s)"
         cursor.execute(sql, (user_id, store_id))
         conn.commit()
 
@@ -103,7 +103,7 @@ def delete_favorite_store(current_user, store_id):
         conn = get_connection()
         cursor = conn.cursor()
 
-        sql = "DELETE FROM FavoriteStore WHERE UserID = %s AND StoreID = %s"
+        sql = "DELETE FROM FavoriteStore WHERE user_id = %s AND store_id = %s"
         cursor.execute(sql, (user_id, store_id))
         conn.commit()
 
@@ -139,11 +139,11 @@ def get_favorite_products(current_user):
 
         # Assuming a 'FavoriteProduct' table
         sql = """
-            SELECT p.ProductID, p.ProductName, p.Price, p.ProductImage, s.StoreName
+            SELECT p.id, p.name, p.price, p.image, s.name as store_name
             FROM FavoriteProduct fp
-            JOIN Product p ON fp.ProductID = p.ProductID
-            JOIN Store s ON p.StoreID = s.StoreID
-            WHERE fp.UserID = %s
+            JOIN Product p ON fp.product_id = p.id
+            JOIN Store s ON p.store_id = s.id
+            WHERE fp.user_id = %s
         """
         cursor.execute(sql, (user_id,))
         products = cursor.fetchall()
@@ -181,7 +181,7 @@ def add_favorite_product(current_user):
         conn = get_connection()
         cursor = conn.cursor()
 
-        sql = "INSERT IGNORE INTO FavoriteProduct (UserID, ProductID) VALUES (%s, %s)"
+        sql = "INSERT IGNORE INTO FavoriteProduct (user_id, product_id) VALUES (%s, %s)"
         cursor.execute(sql, (user_id, product_id))
         conn.commit()
 
@@ -214,7 +214,7 @@ def delete_favorite_product(current_user, product_id):
         conn = get_connection()
         cursor = conn.cursor()
 
-        sql = "DELETE FROM FavoriteProduct WHERE UserID = %s AND ProductID = %s"
+        sql = "DELETE FROM FavoriteProduct WHERE user_id = %s AND product_id = %s"
         cursor.execute(sql, (user_id, product_id))
         conn.commit()
 

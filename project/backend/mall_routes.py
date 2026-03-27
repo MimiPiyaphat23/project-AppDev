@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, request, jsonify
 from db import get_connection
 from logger import log
 
@@ -146,3 +146,48 @@ def get_mall_by_id(mall_id):
     finally:
         if cursor: cursor.close()
         if conn: conn.close()
+
+mall_bp = Blueprint('mall_bp', __name__)
+
+@mall_bp.route('/', methods=['GET'])
+def get_malls():
+    search = request.args.get('search', '')
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    sql = """
+        SELECT m.*, (SELECT COUNT(*) FROM Store s WHERE s.mall_id = m.id) as store_count 
+        FROM Mall m
+    """
+    if search:
+        sql += " WHERE m.name LIKE %s OR m.location LIKE %s"
+        cursor.execute(sql, (f"%{search}%", f"%{search}%"))
+    else:
+        cursor.execute(sql)
+        
+    malls = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return jsonify({"success": True, "data": malls})
+
+@mall_bp.route('/popular', methods=['GET'])
+def get_popular_malls():
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM Mall WHERE is_popular = TRUE")
+    malls = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return jsonify({"success": True, "data": malls})
+
+@mall_bp.route('/<int:mall_id>', methods=['GET'])
+def get_mall_by_id(mall_id):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM Mall WHERE id = %s", (mall_id,))
+    mall = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if mall:
+        return jsonify({"success": True, "data": mall})
+    return jsonify({"success": False, "message": "Mall not found"}), 404

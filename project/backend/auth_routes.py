@@ -77,11 +77,11 @@ def register_user():
         cursor = conn.cursor()
         
         # Check if username or email already exists
-        cursor.execute("SELECT UserID FROM `User` WHERE UserName = %s OR Email = %s", (username, email))
+        cursor.execute("SELECT id FROM `User` WHERE username = %s OR email = %s", (username, email))
         if cursor.fetchone():
             return jsonify({"status": "error", "message": "Username or Email already exists"}), 409
 
-        sql = "INSERT INTO `User` (UserName, Email, PasswordHash, RoleID) VALUES (%s, %s, %s, %s)"
+        sql = "INSERT INTO `User` (username, email, password_hash, role_id) VALUES (%s, %s, %s, %s)"
         cursor.execute(sql, (username, email, hashed_password.decode('utf-8'), role_id))
         conn.commit()
         
@@ -121,38 +121,38 @@ def login():
 
         # --- SRS Compliance: Fetch StoreID for StoreOwners, login via Email ---
         sql = """
-            SELECT u.UserID, u.UserName, u.Email, u.PasswordHash, u.StoreID, r.RoleName
+            SELECT u.id, u.username, u.email, u.password_hash, u.store_id, r.role_name
             FROM `User` u
-            JOIN Role r ON u.RoleID = r.RoleID
-            WHERE u.Email = %s
+            JOIN Role r ON u.role_id = r.role_id
+            WHERE u.email = %s
         """
         cursor.execute(sql, (email,))
         user = cursor.fetchone()
 
-        if user and bcrypt.checkpw(password, user['PasswordHash'].encode('utf-8')):
+        if user and bcrypt.checkpw(password, user['password_hash'].encode('utf-8')):
             
             # --- SRS Compliance: Add StoreID to JWT payload for StoreOwners ---
             payload = {
-                'user_id': user['UserID'],
-                'role': user['RoleName'],
+                'user_id': user['id'],
+                'role': user['role_name'],
                 'exp': datetime.utcnow() + timedelta(hours=24) # Token expires in 24 hours
             }
-            if user['RoleName'] == 'StoreOwner' and user['StoreID']:
-                payload['store_id'] = user['StoreID']
+            if user['role_name'] == 'StoreOwner' and user['store_id']:
+                payload['store_id'] = user['store_id']
 
             token = jwt.encode(payload, current_app.config['SECRET_KEY'], algorithm='HS256')
 
             # --- API Compliance: Prepare user data for the response matching frontend ---
             user_response = {
-                "id": user['UserID'],
-                "username": user['UserName'],
-                "email": user['Email'],
-                "role": user['RoleName']
+                "id": user['id'],
+                "username": user['username'],
+                "email": user['email'],
+                "role": user['role_name']
             }
-            if user['RoleName'] == 'StoreOwner':
-                user_response['store_id'] = user['StoreID']
+            if user['role_name'] == 'StoreOwner':
+                user_response['store_id'] = user['store_id']
 
-            log.info(f"User '{user['UserName']}' logged in successfully as '{user['RoleName']}'.")
+            log.info(f"User '{user['username']}' logged in successfully as '{user['role_name']}'.")
 
             # --- API Compliance: Return response structure matching frontend ---
             return jsonify({
@@ -193,10 +193,10 @@ def get_profile(current_user):
 
         # Fetch user details from the database
         sql = """
-            SELECT u.UserID as id, u.UserName as username, u.Email as email, r.RoleName as role, u.StoreID as store_id
+            SELECT u.id, u.username, u.email, r.role_name as role, u.store_id
             FROM `User` u
-            JOIN Role r ON u.RoleID = r.RoleID
-            WHERE u.UserID = %s
+            JOIN Role r ON u.role_id = r.role_id
+            WHERE u.id = %s
         """
         cursor.execute(sql, (user_id,))
         user = cursor.fetchone()
