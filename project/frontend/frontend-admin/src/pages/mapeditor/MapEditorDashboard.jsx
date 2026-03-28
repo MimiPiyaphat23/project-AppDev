@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { MapPin, Pencil, Trash2 } from 'lucide-react'
 import { useStores } from '../../context/StoreContext'
+import { storeAPI, categoryAPI, mallAPI, floorAPI } from '../../services/api'
 
 const floors = [
     { id: 'LG', label: 'LG', image: '/picture/LG.png' },
@@ -13,23 +14,70 @@ const floors = [
 
 export default function MapEditorDashboard() {
     const { stores, setStores, areas, setAreas } = useStores()
+    
+    // Categories, Malls, Floors state
+    const [categories, setCategories] = useState([])
+    const [malls, setMalls] = useState([])
+    const [floorsByFloorCode, setFloorsByFloorCode] = useState({})
+    
     useEffect(() => {
-    fetch('http://localhost:5000/api/stores')
-    .then(res => res.json())
-    .then(data => {
-        const formatted = data.data.map(item => ({
-            id: item.id,
-            name: item.name,
-            floor: item.floor,
-            category: item.category?.name,
-            icon: item.category?.icon || '🏪',
-            logo: item.logo,
-            description: item.description,
-            position: item.position
-        }))
-
-        setStores(formatted)
-    })
+        // Fetch stores
+        storeAPI.getAll()
+            .then(res => {
+                const data = res.data.data || []
+                const formatted = data.map(item => ({
+                    id: item.id,
+                    name: item.name,
+                    floor: item.floor,
+                    floor_id: item.floor_id,
+                    category: item.category?.name,
+                    icon: item.category?.icon || '🏪',
+                    logo: item.logo,
+                    description: item.description,
+                    position: item.position,
+                    phone: item.phone,
+                    opening_hours: item.opening_hours,
+                    store_category_id: item.store_category_id,
+                    mall_id: item.mall_id
+                }))
+                setStores(formatted)
+            })
+            .catch(err => console.error('Failed to load stores:', err))
+        
+        // Fetch categories
+        categoryAPI.getAll()
+            .then(res => {
+                const cats = res.data.data || []
+                setCategories(cats)
+            })
+            .catch(err => console.error('Failed to load categories:', err))
+        
+        // Fetch malls
+        mallAPI.getAll()
+            .then(res => {
+                const mallData = res.data.data || []
+                setMalls(mallData)
+            })
+            .catch(err => console.error('Failed to load malls:', err))
+        
+        // Fetch all floors
+        floorAPI.getAll()
+            .then(res => {
+                const floorData = res.data.data || []
+                console.log('Floor API Response:', floorData)
+                // Create a map of floor codes to floor data
+                const floorMap = {}
+                floorData.forEach(floor => {
+                    // Try different possible keys for floor code
+                    const code = floor.floor_code || floor.FloorCode || floor.floorCode
+                    if (code) {
+                        floorMap[code] = floor
+                    }
+                })
+                console.log('Floor Map:', floorMap)
+                setFloorsByFloorCode(floorMap)
+            })
+            .catch(err => console.error('Failed to load floors:', err))
     }, [])
     const [currentFloor, setCurrentFloor] = useState('LG')
     const [deleteId, setDeleteId] = useState(null)
@@ -56,10 +104,24 @@ export default function MapEditorDashboard() {
 
     const currentFloorData = floors.find((f) => f.id === currentFloor)
     const storesOnFloor = stores.filter((s) => s.floor === currentFloor)
-    const categories = [...new Set(stores.map((s) => s.category))].length
+    const uniqueCategories = [...new Set(stores.map((s) => s.category))].length
 
     const strokes = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#3b82f6']
     const colors = ['rgba(99,102,241,0.15)', 'rgba(16,185,129,0.15)', 'rgba(245,158,11,0.15)', 'rgba(239,68,68,0.15)', 'rgba(59,130,246,0.15)']
+
+    // ✅ sync ref ทันทีตอน zoom เปลี่ยน (ไม่รอ useEffect)
+    const setZoomSync = (updater) => {
+        setZoom(prev => {
+            const next = typeof updater === 'function' ? updater(prev) : updater
+            zoomRef.current = next
+            return next
+        })
+    }
+
+    const setPanSync = (newPan) => {
+        panStateRef.current = newPan
+        setPan(newPan)
+    }
 
     useEffect(() => { zoomRef.current = zoom }, [zoom])
     useEffect(() => { panStateRef.current = pan }, [pan])
@@ -124,14 +186,15 @@ export default function MapEditorDashboard() {
     }, [])
 
     const handleDelete = () => {
-        fetch(`http://localhost:5000/api/stores/${deleteId}`, {
-            method: 'DELETE'
-        })
-        .then(() => {
-            setStores(stores.filter((s) => s.id !== deleteId))
-            setDeleteId(null)
-        })
-        .catch(err => console.error('Delete error:', err))
+        storeAPI.delete(deleteId)
+            .then(() => {
+                setStores(stores.filter((s) => s.id !== deleteId))
+                setDeleteId(null)
+            })
+            .catch(err => {
+                console.error('Delete error:', err)
+                alert('Failed to delete store')
+            })
     }
 
     const getCentroid = (points) => ({
@@ -139,6 +202,7 @@ export default function MapEditorDashboard() {
         y: points.reduce((s, p) => s + p.y, 0) / points.length,
     })
 
+    // ✅ ใช้ ref แทน state เพื่อกัน stale closure ตอน draw area
     const toScreenPos = (xPct, yPct) => {
         const el = mapRef.current
         if (!el) return { x: 0, y: 0 }
@@ -148,9 +212,11 @@ export default function MapEditorDashboard() {
         const imgCenterY = containerH / 2
         const rawX = (xPct / 100) * containerW
         const rawY = (yPct / 100) * containerH
+        const z = zoomRef.current
+        const p = panStateRef.current
         return {
-            x: imgCenterX + (rawX - imgCenterX) * zoom + pan.x,
-            y: imgCenterY + (rawY - imgCenterY) * zoom + pan.y,
+            x: imgCenterX + (rawX - imgCenterX) * z + p.x,
+            y: imgCenterY + (rawY - imgCenterY) * z + p.y,
         }
     }
 
@@ -161,8 +227,10 @@ export default function MapEditorDashboard() {
         const containerH = el.offsetHeight
         const imgCenterX = containerW / 2
         const imgCenterY = containerH / 2
-        const realX = (clickX - pan.x - imgCenterX) / zoom + imgCenterX
-        const realY = (clickY - pan.y - imgCenterY) / zoom + imgCenterY
+        const z = zoomRef.current
+        const p = panStateRef.current
+        const realX = (clickX - p.x - imgCenterX) / z + imgCenterX
+        const realY = (clickY - p.y - imgCenterY) / z + imgCenterY
         return {
             x: (realX / containerW) * 100,
             y: (realY / containerH) * 100,
@@ -198,7 +266,7 @@ export default function MapEditorDashboard() {
                         <p className="text-sm text-gray-500">Categories</p>
                         <MapPin className="w-5 h-5 text-gray-300" />
                     </div>
-                    <p className="text-3xl font-bold text-gray-800 mt-2">{categories}</p>
+                    <p className="text-3xl font-bold text-gray-800 mt-2">{uniqueCategories}</p>
                     <p className="text-xs text-gray-400 mt-1">Unique categories</p>
                 </div>
             </div>
@@ -265,9 +333,8 @@ export default function MapEditorDashboard() {
                                 key={floor.id}
                                 onClick={() => {
                                     setCurrentFloor(floor.id)
-                                    setPan({ x: 0, y: 0 })
+                                    setPanSync({ x: 0, y: 0 })
                                     panRef.current = { x: 0, y: 0 }
-                                    panStateRef.current = { x: 0, y: 0 }
                                 }}
                                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
                                     currentFloor === floor.id
@@ -296,7 +363,8 @@ export default function MapEditorDashboard() {
                         if (!drawingMode) return
                         const rect = e.currentTarget.getBoundingClientRect()
                         const pos = toImagePct(e.clientX - rect.left, e.clientY - rect.top)
-                        setCurrentPoints([...currentPoints, pos])
+                        // ✅ functional update กัน stale closure ของ currentPoints
+                        setCurrentPoints(prev => [...prev, pos])
                     }}
                 >
                     <div className="absolute top-3 left-3 bg-white text-xs text-gray-500 px-2 py-1 rounded shadow-sm z-10">
@@ -310,9 +378,9 @@ export default function MapEditorDashboard() {
                     )}
 
                     <div className="absolute top-3 right-3 flex flex-col gap-1 z-10">
-                        <button onClick={(e) => { e.stopPropagation(); setZoom(z => Math.min(z + 0.25, 3)) }}
+                        <button onClick={(e) => { e.stopPropagation(); setZoomSync(z => Math.min(z + 0.25, 3)) }}
                             className="bg-white shadow rounded p-1 hover:bg-gray-50 w-8 h-8 flex items-center justify-center text-gray-600">+</button>
-                        <button onClick={(e) => { e.stopPropagation(); setZoom(z => Math.max(z - 0.25, 0.5)) }}
+                        <button onClick={(e) => { e.stopPropagation(); setZoomSync(z => Math.max(z - 0.25, 0.5)) }}
                             className="bg-white shadow rounded p-1 hover:bg-gray-50 w-8 h-8 flex items-center justify-center text-gray-600">−</button>
                     </div>
 
@@ -446,14 +514,9 @@ export default function MapEditorDashboard() {
                                 <select value={newStore.category} onChange={(e) => setNewStore({ ...newStore, category: e.target.value })}
                                     className="w-full border border-gray-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#ECDEAB] text-gray-500">
                                     <option value="">Select category</option>
-                                    <option value="Clothing">Clothing</option>
-                                    <option value="Electronics">Electronics</option>
-                                    <option value="Food">Food</option>
-                                    <option value="Books">Books</option>
-                                    <option value="Shoes">Shoes</option>
-                                    <option value="Beauty">Beauty</option>
-                                    <option value="Sports">Sports</option>
-                                    <option value="Other">Other</option>
+                                    {categories.map((cat) => (
+                                        <option key={cat.id} value={cat.name}>{cat.name}</option>
+                                    ))}
                                 </select>
                             </div>
                             <div>
@@ -511,18 +574,111 @@ export default function MapEditorDashboard() {
                                 onClick={() => {
                                     if (!newStore.name || !newStore.category || !newStore.email || !newStore.password) return
                                     if (newStore.password !== newStore.confirmPassword) return
-                                    fetch('http://localhost:5000/api/stores', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify(newStore)
-                                    })
-                                    .then(res => res.json())
-                                    .then(data => {
-                                        setStores([...stores, data])
-                                    })
-                                    .catch(err => console.error('Add store error:', err))
+                                    
+                                    // Get category ID from categories
+                                    const categoryObj = categories.find(c => c.name === newStore.category)
+                                    const categoryId = categoryObj?.id
+                                    
+                                    if (!categoryId) {
+                                        alert('Please select a valid category')
+                                        return
+                                    }
+                                    
+                                    // Get floor ID - try multiple methods
+                                    let floorId = null
+                                    
+                                    // Method 1: From fetched floor data
+                                    let floorData = floorsByFloorCode[newStore.floor]
+                                    floorId = floorData?.floor_id || floorData?.FloorID
+                                    
+                                    // Method 2: From existing stores on this floor (fallback)
+                                    if (!floorId) {
+                                        const storeOnFloor = stores.find(s => s.floor === newStore.floor)
+                                        floorId = storeOnFloor?.floor_id
+                                    }
+                                    
+                                    // Method 3: Hardcoded floor mapping as ultimate fallback
+                                    // Maps floor codes to typical IDs (typically Floor 1-5 have IDs 1-5)
+                                    if (!floorId) {
+                                        const floorCodeToId = {
+                                            'LG': 1,  // Lower Ground
+                                            'G': 2,   // Ground
+                                            '1': 3,   // Floor 1
+                                            '2': 4,   // Floor 2
+                                            '3': 5,   // Floor 3
+                                            '4': 6    // Floor 4
+                                        }
+                                        floorId = floorCodeToId[newStore.floor]
+                                    }
+                                    
+                                    console.log('Looking for floor:', newStore.floor, 'Found ID:', floorId, 'Available floors:', Object.keys(floorsByFloorCode), 'Stores count:', stores.length)
+                                    
+                                    if (!floorId) {
+                                        alert(`Floor ID not found for floor: ${newStore.floor}`)
+                                        return
+                                    }
+                                    
+                                    // Get mall ID - use first mall if no stores exist yet
+                                    const firstStore = stores[0]
+                                    const mallId = firstStore?.mall_id || (malls[0]?.mall_id) || 1
+                                    
+                                    // ✅ Optimistic update - add ทันที ไม่รอ backend
+                                    const tempId = Date.now()
+                                    const optimisticStore = {
+                                        id: tempId,
+                                        name: newStore.name,
+                                        floor: newStore.floor,
+                                        floor_id: floorId,
+                                        category: newStore.category,
+                                        icon: '🏪',
+                                        logo: newStore.logo ?? null,
+                                        description: newStore.description ?? '',
+                                        position: { x: 0, y: 0 },
+                                        mail_id: mallId,
+                                        store_category_id: categoryId
+                                    }
+                                    setStores(prev => [...prev, optimisticStore])
                                     setNewStore({ name: '', category: '', floor: 'G', description: '', logo: null, email: '', password: '', confirmPassword: '' })
                                     setShowAddStore(false)
+
+                                    // sync กับ backend แล้วแทนที่ด้วย id จริง
+                                    storeAPI.create({
+                                        StoreName: newStore.name,
+                                        StoreCategoryName: newStore.category,
+                                        StoreCategoryID: categoryId,
+                                        Description: newStore.description || '',
+                                        Phone: '',
+                                        OpeningHours: '',
+                                        LogoURL: newStore.logo || '',
+                                        MallID: mallId,
+                                        FloorID: floorId,
+                                        PosX: 0,
+                                        PosY: 0
+                                    })
+                                    .then(res => {
+                                        const item = res.data.data || { id: res.data.id }
+                                        setStores(prev => prev.map(s => s.id === tempId ? {
+                                            id: item.id ?? tempId,
+                                            name: item.name ?? optimisticStore.name,
+                                            floor: item.floor ?? optimisticStore.floor,
+                                            floor_id: item.floor_id ?? floorId,
+                                            category: item.category?.name ?? item.category ?? optimisticStore.category,
+                                            icon: item.category?.icon ?? categoryObj?.icon ?? '🏪',
+                                            logo: item.logo ?? optimisticStore.logo,
+                                            description: item.description ?? optimisticStore.description,
+                                            position: item.position ?? { x: 0, y: 0 },
+                                            store_category_id: item.store_category_id ?? categoryId,
+                                            mail_id: item.mall_id ?? mallId,
+                                            phone: item.phone || '',
+                                            opening_hours: item.opening_hours || ''
+                                        } : s))
+                                    })
+                                    .catch(err => {
+                                        // Remove optimistic store if request failed
+                                        setStores(prev => prev.filter(s => s.id !== tempId))
+                                        console.error('Add store error:', err)
+                                        alert('Failed to add store: ' + (err.response?.data?.message || err.message))
+                                    })
                                 }}
                                 className="px-6 py-2 bg-gray-700 hover:bg-gray-800 text-white text-sm rounded-lg font-medium"
                             >
@@ -556,14 +712,9 @@ export default function MapEditorDashboard() {
                                 <select value={editStore.category}
                                     onChange={(e) => setEditStore({ ...editStore, category: e.target.value })}
                                     className="w-full border border-gray-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#ECDEAB]">
-                                    <option value="Clothing">Clothing</option>
-                                    <option value="Electronics">Electronics</option>
-                                    <option value="Food">Food</option>
-                                    <option value="Books">Books</option>
-                                    <option value="Shoes">Shoes</option>
-                                    <option value="Beauty">Beauty</option>
-                                    <option value="Sports">Sports</option>
-                                    <option value="Other">Other</option>
+                                    {categories.map((cat) => (
+                                        <option key={cat.id} value={cat.name}>{cat.name}</option>
+                                    ))}
                                 </select>
                             </div>
                             <div>
@@ -612,17 +763,51 @@ export default function MapEditorDashboard() {
                                 <button
                                     onClick={() => {
                                         if (!editStore.name || !editStore.category) return
-                                        fetch(`http://localhost:5000/api/stores/${editStore.id}`, {
-                                        method: 'PUT',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify(editStore)
-                                    })
-                                    .then(res => res.json())
-                                    .then(updated => {
-                                        setStores(stores.map(s => s.id === updated.id ? updated : s))
-                                        setEditStore(null)
-                                    })
-                                    .catch(err => console.error('Update error:', err))
+                                        
+                                        // Get category ID from categories
+                                        const categoryObj = categories.find(c => c.name === editStore.category)
+                                        const categoryId = categoryObj?.id || editStore.store_category_id
+                                        
+                                        storeAPI.update(editStore.id, {
+                                            StoreName: editStore.name,
+                                            StoreCategoryName: editStore.category,
+                                            StoreCategoryID: categoryId,
+                                            Description: editStore.description || '',
+                                            Phone: editStore.phone || '',
+                                            OpeningHours: editStore.opening_hours || '',
+                                            LogoURL: editStore.logo || '',
+                                            FloorID: editStore.floor_id,
+                                            PosX: editStore.position?.x || 0,
+                                            PosY: editStore.position?.y || 0
+                                        })
+                                        .then(() => {
+                                            // After successful update, fetch the updated store
+                                            return storeAPI.getById(editStore.id)
+                                        })
+                                        .then(res => {
+                                            const updated = res.data.data
+                                            const formattedStore = {
+                                                id: updated.id,
+                                                name: updated.name,
+                                                floor: updated.floor,
+                                                floor_id: updated.floor_id,
+                                                category: updated.category?.name,
+                                                icon: updated.category?.icon || '🏪',
+                                                logo: updated.logo,
+                                                description: updated.description,
+                                                position: updated.position,
+                                                store_category_id: updated.store_category_id,
+                                                phone: updated.phone,
+                                                opening_hours: updated.opening_hours,
+                                                mall_id: updated.mall_id
+                                            }
+                                            setStores(stores.map(s => s.id === editStore.id ? formattedStore : s))
+                                            setEditStore(null)
+                                        })
+                                        .catch(err => {
+                                            console.error('Update error:', err)
+                                            alert('Failed to update store: ' + (err.response?.data?.message || err.message))
+                                        })
                                     }}
                                     className="px-6 py-2 bg-gray-700 hover:bg-gray-800 text-white text-sm rounded-lg font-medium"
                                 >

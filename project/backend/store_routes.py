@@ -1,153 +1,284 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request
+
+from api_utils import fail, ok
+from auth_routes import token_required
 from db import get_connection
+from logger import log
 
-store_bp = Blueprint('store_bp', __name__)
+store_bp = Blueprint("store_bp", __name__)
 
-# =========================
-# FORMATTER
-# =========================
-def format_store(s):
+
+def format_store(row):
     return {
-        "id": s.get("StoreID") or s.get("id"),
-        "name": s.get("StoreName") or s.get("name"),
-
-        "floor": s.get("FloorCode") or s.get("floor_code"),
-        "floor_id": s.get("FloorID") or s.get("floor_id"),
-
-        "position": {
-            "x": s.get("PosX") or s.get("map_x"),
-            "y": s.get("PosY") or s.get("map_y")
-        },
-
-        "logo": s.get("LogoURL"),
-
+        "id": row["StoreID"],
+        "name": row["StoreName"],
+        "mall_id": row["MallID"],
+        "floor": row["FloorCode"],
+        "floor_id": row["FloorID"],
+        "floor_code": row["FloorCode"],
+        "map_x": float(row.get("PosX") or 0),
+        "map_y": float(row.get("PosY") or 0),
+        "position": {"x": float(row.get("PosX") or 0), "y": float(row.get("PosY") or 0)},
+        "logo": row.get("LogoURL"),
+        "category_name": row.get("StoreCategoryName"),
         "category": {
-            "name": s.get("StoreCategoryName") or s.get("category_name"),
-            "icon": s.get("StoreCategoryIcon") or s.get("category_icon")
+            "name": row.get("StoreCategoryName"),
+            "icon": row.get("StoreCategoryIcon"),
         },
-
-        "description": s.get("Description") or s.get("description")
+        "description": row.get("Description"),
+        "phone": row.get("Phone"),
+        "opening_hours": row.get("OpeningHours"),
+        "owner_user_id": row.get("UserID"),
+        "floor_name": row.get("FloorName"),
+        "mall_name": row.get("MallName"),
+        "store_category_id": row.get("StoreCategoryID"),
     }
 
 
-# =========================
-# 📋 GET ALL STORES
-# =========================
-@store_bp.route('/', methods=['GET'])
+def base_store_query(where_clause="", order_clause="ORDER BY s.StoreName ASC"):
+    return f"""
+        SELECT
+            s.StoreID,
+            s.UserID,
+            s.StoreName,
+            s.StoreCategoryName,
+            s.StoreCategoryIcon,
+            s.StoreCategoryID,
+            s.Description,
+            s.Phone,
+            s.OpeningHours,
+            s.LogoURL,
+            s.MallID,
+            m.MallName,
+            s.FloorID,
+            f.FloorName,
+            f.FloorCode,
+            s.PosX,
+            s.PosY
+        FROM Store s
+        JOIN Floor f ON f.FloorID = s.FloorID
+        JOIN Mall m ON m.MallID = s.MallID
+        {where_clause}
+        {order_clause}
+    """
+
+
+@store_bp.route("/", methods=["GET"])
 def get_all_stores():
     conn = None
     cursor = None
-
     try:
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
-
-        sql = """
-            SELECT 
-                s.StoreID,
-                s.StoreName,
-                s.FloorID,
-                s.PosX,
-                s.PosY,
-                s.LogoURL,
-                s.StoreCategoryName,
-                s.StoreCategoryIcon,
-                s.Description,
-                f.FloorCode
-            FROM Store s
-            JOIN Floor f ON s.FloorID = f.FloorID
-            ORDER BY s.StoreName ASC
-        """
-
-        cursor.execute(sql)
-        stores = cursor.fetchall()
-
-        formatted = [format_store(s) for s in stores]
-
-        return jsonify({
-            "success": True,
-            "data": formatted
-        }), 200
-
+        cursor.execute(base_store_query())
+        return ok([format_store(row) for row in cursor.fetchall()])
     except Exception as e:
-        print(f"🔥 ERROR GET STORES: {e}")
-        return jsonify({
-            "success": False,
-            "message": str(e)
-        }), 500
-
+        log.error("ERROR GET ALL STORES: %s", e)
+        return fail("An internal server error occurred", 500)
     finally:
-        if cursor: cursor.close()
-        if conn: conn.close()
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 
-# =========================
-# ➕ CREATE STORE
-# =========================
-@store_bp.route('/', methods=['POST'])
-def create_store():
-    data = request.json
-    conn = get_connection()
-    cursor = conn.cursor()
-
+@store_bp.route("/mall/<int:mall_id>", methods=["GET"])
+def get_stores_by_mall(mall_id):
+    conn = None
+    cursor = None
     try:
-        sql = """
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(base_store_query("WHERE s.MallID = %s"), (mall_id,))
+        return ok([format_store(row) for row in cursor.fetchall()])
+    except Exception as e:
+        log.error("ERROR GET STORES BY MALL: %s", e)
+        return fail("An internal server error occurred", 500)
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
+@store_bp.route("/search", methods=["GET"])
+def search_stores():
+    conn = None
+    cursor = None
+    try:
+        mall_id = request.args.get("mall_id", type=int)
+        q = (request.args.get("q") or "").strip()
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        conditions = []
+        params = []
+        if mall_id:
+            conditions.append("s.MallID = %s")
+            params.append(mall_id)
+        if q:
+            conditions.append("(s.StoreName LIKE %s OR s.StoreCategoryName LIKE %s)")
+            like = f"%{q}%"
+            params.extend([like, like])
+        where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        cursor.execute(base_store_query(where), tuple(params))
+        return ok([format_store(row) for row in cursor.fetchall()])
+    except Exception as e:
+        log.error("ERROR SEARCH STORES: %s", e)
+        return fail("An internal server error occurred", 500)
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
+@store_bp.route("/<int:store_id>", methods=["GET"])
+def get_store_by_id(store_id):
+    conn = None
+    cursor = None
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(base_store_query("WHERE s.StoreID = %s", order_clause=""), (store_id,))
+        row = cursor.fetchone()
+        if not row:
+            return fail("Store not found", 404)
+        return ok(format_store(row))
+    except Exception as e:
+        log.error("ERROR GET STORE BY ID: %s", e)
+        return fail("An internal server error occurred", 500)
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
+@store_bp.route("/", methods=["POST"])
+@token_required(["Admin", "StoreOwner"])
+def create_store(current_user):
+    conn = None
+    cursor = None
+    try:
+        data = request.get_json(silent=True) or {}
+        log.info("CREATE STORE REQUEST: %s", data)
+        
+        required = ["StoreName", "StoreCategoryName", "StoreCategoryID", "MallID", "FloorID"]
+        missing = [field for field in required if not data.get(field)]
+        if missing:
+            log.warning("Missing required fields: %s", missing)
+            return fail(f"Missing required fields: {', '.join(missing)}", 400)
+
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        
+        # Verify Mall exists
+        cursor.execute("SELECT MallID FROM Mall WHERE MallID = %s", (data["MallID"],))
+        if not cursor.fetchone():
+            log.warning("Mall not found with ID: %s", data["MallID"])
+            return fail(f"Mall not found with ID {data['MallID']}", 404)
+        
+        # Verify Floor exists
+        cursor.execute("SELECT FloorName FROM Floor WHERE FloorID = %s", (data["FloorID"],))
+        floor = cursor.fetchone()
+        if not floor:
+            log.warning("Floor not found with ID: %s", data["FloorID"])
+            return fail(f"Floor not found with ID {data['FloorID']}", 404)
+        
+        # Verify StoreCategoryID exists
+        cursor.execute("SELECT StoreCategoryName FROM StoreCategory WHERE StoreCategoryID = %s", (data["StoreCategoryID"],))
+        category = cursor.fetchone()
+        if not category:
+            log.warning("Category not found with ID: %s", data["StoreCategoryID"])
+            return fail(f"Category not found with ID {data['StoreCategoryID']}", 404)
+
+        user_id = data.get("UserID") or current_user.get("user_id")
+        if not user_id:
+            log.warning("No user ID found in current_user: %s", current_user)
+            return fail("User ID not found", 400)
+            
+        log.info("Inserting store with UserID: %s, StoreName: %s, FloorID: %s, MallID: %s", user_id, data["StoreName"], data["FloorID"], data["MallID"])
+        
+        cursor.execute(
+            """
             INSERT INTO Store (
-                UserID, StoreName, StoreCategoryName, StoreCategoryID,
-                Description, Phone, OpeningHours, LogoURL,
-                MallID, FloorName, FloorID, PosX, PosY
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """
-
-        values = (
-            data.get('UserID'),
-            data.get('StoreName'),
-            data.get('StoreCategoryName'),
-            data.get('StoreCategoryID'),
-            data.get('Description'),
-            data.get('Phone'),
-            data.get('OpeningHours'),
-            data.get('LogoURL'),
-            data.get('MallID'),
-            data.get('FloorName'),
-            data.get('FloorID'),
-            data.get('PosX'),
-            data.get('PosY')
+                UserID, StoreName, StoreCategoryName, StoreCategoryIcon, StoreCategoryID,
+                Description, Phone, OpeningHours, LogoURL, MallID, FloorName, FloorID, PosX, PosY
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                user_id,
+                data["StoreName"],
+                data["StoreCategoryName"],
+                data.get("StoreCategoryIcon") or "shopping-bag",
+                data["StoreCategoryID"],
+                data.get("Description") or "",
+                data.get("Phone") or "",
+                data.get("OpeningHours") or "",
+                data.get("LogoURL") or "",
+                data["MallID"],
+                floor["FloorName"],
+                data["FloorID"],
+                data.get("PosX") or 0,
+                data.get("PosY") or 0,
+            ),
         )
-
-        cursor.execute(sql, values)
+        store_id = cursor.lastrowid
         conn.commit()
-
-        return jsonify({
-            "success": True,
-            "message": "Store created successfully"
-        }), 201
-
+        log.info("Store created successfully with ID: %s", store_id)
+        return ok({"id": store_id}, message="Store created successfully", status=201)
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "message": str(e)
-        }), 500
-
+        log.error("ERROR CREATE STORE: %s", e, exc_info=True)
+        return fail(f"An internal server error occurred: {str(e)}", 500)
     finally:
-        cursor.close()
-        conn.close()
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 
-# =========================
-# 📝 UPDATE STORE
-# =========================
-@store_bp.route('/<int:store_id>', methods=['PUT'])
-def update_store(store_id):
-    data = request.json
-    conn = get_connection()
-    cursor = conn.cursor()
-
+@store_bp.route("/<int:store_id>", methods=["PUT"])
+@token_required(["Admin", "StoreOwner"])
+def update_store(current_user, store_id):
+    conn = None
+    cursor = None
     try:
-        sql = """
-            UPDATE Store SET 
+        data = request.get_json(silent=True) or {}
+        log.info("UPDATE STORE REQUEST (ID: %s): %s", store_id, data)
+        
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        
+        # Verify Store exists
+        cursor.execute("SELECT StoreID FROM Store WHERE StoreID = %s", (store_id,))
+        if not cursor.fetchone():
+            log.warning("Store not found with ID: %s", store_id)
+            return fail("Store not found", 404)
+        
+        # Verify Floor exists if FloorID is provided
+        floor = None
+        if data.get("FloorID"):
+            cursor.execute("SELECT FloorName FROM Floor WHERE FloorID = %s", (data["FloorID"],))
+            floor = cursor.fetchone()
+            if not floor:
+                log.warning("Floor not found with ID: %s", data["FloorID"])
+                return fail(f"Floor not found with ID {data['FloorID']}", 404)
+        
+        # Verify StoreCategoryID exists if provided
+        if data.get("StoreCategoryID"):
+            cursor.execute("SELECT StoreCategoryName FROM StoreCategory WHERE StoreCategoryID = %s", (data["StoreCategoryID"],))
+            category = cursor.fetchone()
+            if not category:
+                log.warning("Category not found with ID: %s", data["StoreCategoryID"])
+                return fail(f"Category not found with ID {data['StoreCategoryID']}", 404)
+        
+        cursor.execute(
+            """
+            UPDATE Store SET
                 StoreName=%s,
                 StoreCategoryName=%s,
+                StoreCategoryIcon=%s,
                 StoreCategoryID=%s,
                 Description=%s,
                 Phone=%s,
@@ -158,116 +289,54 @@ def update_store(store_id):
                 PosX=%s,
                 PosY=%s
             WHERE StoreID=%s
-        """
-
-        values = (
-            data.get('StoreName'),
-            data.get('StoreCategoryName'),
-            data.get('StoreCategoryID'),
-            data.get('Description'),
-            data.get('Phone'),
-            data.get('OpeningHours'),
-            data.get('LogoURL'),
-            data.get('FloorName'),
-            data.get('FloorID'),
-            data.get('PosX'),
-            data.get('PosY'),
-            store_id
+            """,
+            (
+                data.get("StoreName"),
+                data.get("StoreCategoryName"),
+                data.get("StoreCategoryIcon") or "shopping-bag",
+                data.get("StoreCategoryID"),
+                data.get("Description") or "",
+                data.get("Phone") or "",
+                data.get("OpeningHours") or "",
+                data.get("LogoURL") or "",
+                floor["FloorName"] if floor else data.get("FloorName") or "",
+                data.get("FloorID"),
+                data.get("PosX") or 0,
+                data.get("PosY") or 0,
+                store_id,
+            ),
         )
-
-        cursor.execute(sql, values)
         conn.commit()
-
-        return jsonify({
-            "success": True,
-            "message": "Store updated successfully"
-        })
-
+        log.info("Store updated successfully with ID: %s", store_id)
+        return ok(message="Store updated successfully")
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "message": str(e)
-        }), 500
-
+        log.error("ERROR UPDATE STORE: %s", e, exc_info=True)
+        return fail(f"An internal server error occurred: {str(e)}", 500)
     finally:
-        cursor.close()
-        conn.close()
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 
-# =========================
-# 🗑️ DELETE STORE
-# =========================
-@store_bp.route('/<int:store_id>', methods=['DELETE'])
-def delete_store(store_id):
-    conn = get_connection()
-    cursor = conn.cursor()
-
+@store_bp.route("/<int:store_id>", methods=["DELETE"])
+@token_required(["Admin", "StoreOwner"])
+def delete_store(current_user, store_id):
+    conn = None
+    cursor = None
     try:
+        conn = get_connection()
+        cursor = conn.cursor()
         cursor.execute("DELETE FROM Store WHERE StoreID = %s", (store_id,))
         conn.commit()
-
-        return jsonify({
-            "success": True,
-            "message": "Store deleted successfully"
-        })
-
+        if cursor.rowcount == 0:
+            return fail("Store not found", 404)
+        return ok(message="Store deleted successfully")
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "message": str(e)
-        }), 500
-
+        log.error("ERROR DELETE STORE: %s", e)
+        return fail("An internal server error occurred", 500)
     finally:
-        cursor.close()
-        conn.close()
-
-
-# =========================
-# 🔍 GET STORE BY ID
-# =========================
-@store_bp.route('/<int:store_id>', methods=['GET'])
-def get_store_by_id(store_id):
-    conn = get_connection()
-    cursor = conn.cursor(dictionary=True)
-
-    try:
-        sql = """
-            SELECT 
-                s.StoreID,
-                s.StoreName,
-                s.FloorID,
-                s.PosX,
-                s.PosY,
-                s.LogoURL,
-                s.StoreCategoryName,
-                s.StoreCategoryIcon,
-                s.Description,
-                f.FloorCode
-            FROM Store s
-            JOIN Floor f ON s.FloorID = f.FloorID
-            WHERE s.StoreID = %s
-        """
-
-        cursor.execute(sql, (store_id,))
-        store = cursor.fetchone()
-
-        if not store:
-            return jsonify({
-                "success": False,
-                "message": "Store not found"
-            }), 404
-
-        return jsonify({
-            "success": True,
-            "data": format_store(store)
-        })
-
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "message": str(e)
-        }), 500
-
-    finally:
-        cursor.close()
-        conn.close()
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
