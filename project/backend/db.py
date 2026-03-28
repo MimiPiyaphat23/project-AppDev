@@ -1,25 +1,25 @@
 import mysql.connector
-import os # Recommended to use environment variables for security
+import os
 
 def get_connection():
     """
-    Establishes and returns a connection to the database.
-    In a production environment, it's highly recommended to use environment
-    variables for connection details instead of hardcoding them.
+    Connect to MySQL database using environment variables
+    รองรับ Railway + Local
     """
     try:
         conn = mysql.connector.connect(
             host=os.environ.get('DB_HOST', '127.0.0.1'),
+            port=int(os.environ.get('DB_PORT', 3306)),  # ✅ สำคัญมาก (เพิ่มตรงนี้)
             user=os.environ.get('DB_USER', 'root'),
-            password=os.environ.get('DB_PASSWORD', '123456'),
+            password=os.environ.get('DB_PASSWORD', ''),
             database=os.environ.get('DB_NAME', 'mallmap')
         )
-        # The is_connected() check is often redundant because connect() raises an error on failure.
-        # But it's harmless to keep for explicit confirmation.
+
         if conn.is_connected():
-            print("Successfully connected to the database.")
+            print("✅ Connected to database successfully")
+
         return conn
+
     except mysql.connector.Error as err:
-        print(f"Error connecting to database: {err}")
-        # Re-raising the error is good practice if the caller needs to handle the connection failure.
-        raise RuntimeError(f"Could not connect to database: {err}") from err
+        print(f"❌ Database connection error: {err}")
+        raise RuntimeError(f"Database connection failed: {err}")
