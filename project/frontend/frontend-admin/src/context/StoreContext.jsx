@@ -1,49 +1,57 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { storeAPI } from '../services/api';
+import React, { createContext, useContext, useEffect, useState } from 'react'
+import { storeAPI } from '../services/api'
 
-const StoreContext = createContext();
+const StoreContext = createContext()
+
+const normalizeStore = (item) => ({
+  id: item.id,
+  name: item.name,
+  category: item.category?.name || item.category_name || '-',
+  floor: item.floor,
+  floor_id: item.floor_id,
+  icon: item.category?.icon || '🏬',
+  logo: item.logo,
+  phone: item.phone,
+  posX: item.position?.x ?? 0,
+  posY: item.position?.y ?? 0,
+  description: item.description,
+  openingHours: item.opening_hours,
+  price: item.price,
+  stock: item.stock,
+  status: item.status,
+  position: item.position,
+  store_category_id: item.store_category_id,
+  mall_id: item.mall_id,
+})
 
 export const StoreProvider = ({ children }) => {
-  const [stores, setStores] = useState([]);
-  const [areas, setAreas] = useState([]); // เก็บไว้รองรับ Map Editor
-  const [loading, setLoading] = useState(false);
+  const [stores, setStores] = useState([])
+  const [areas, setAreas] = useState([])
+  const [loading, setLoading] = useState(false)
 
   const fetchStores = async () => {
-    setLoading(true);
+    setLoading(true)
     try {
-      const response = await storeAPI.getAll();
+      const response = await storeAPI.getAll()
       if (response.data.success) {
-        const mappedData = response.data.data.map(item => ({
-          id: item.StoreID,
-          name: item.StoreName,
-          category: item.StoreCategoryName,
-          floor: item.FloorName,
-          icon: item.StoreCategoryIcon || '🏬',
-          logo: item.LogoURL,
-          phone: item.Phone,
-          posX: item.PosX,
-          posY: item.PosY,
-          description: item.Description,
-          openingHours: item.OpeningHours
-        }));
-        setStores(mappedData);
+        setStores((response.data.data || []).map(normalizeStore))
       }
     } catch (error) {
-      console.error("Error fetching stores:", error);
+      console.error('Error fetching stores:', error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   useEffect(() => {
-    fetchStores();
-  }, []);
+    fetchStores()
+  }, [])
 
   return (
     <StoreContext.Provider value={{ stores, setStores, areas, setAreas, loading, refreshStores: fetchStores }}>
       {children}
     </StoreContext.Provider>
-  );
-};
+  )
+}
 
-export const useStores = () => useContext(StoreContext);
+export const useStores = () => useContext(StoreContext)
