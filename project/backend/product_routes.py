@@ -1,95 +1,66 @@
-from flask import Blueprint, jsonify
+from flask import Blueprint
+
+from api_utils import fail, ok
 from db import get_connection
+from logger import log
 
-product_bp = Blueprint('product_bp', __name__)
+product_bp = Blueprint("product_bp", __name__)
 
 
-# =========================
-# FORMATTER
-# =========================
-def format_product(p):
+def format_product(row):
     return {
-        "id": p.get("id"),
-        "store_id": p.get("store_id"),
-        "name": p.get("name"),
-        "price": float(p.get("price") or 0),
-        "stock": p.get("stock", 0),
-        "image": p.get("image")
+        "id": row["ProductID"],
+        "store_id": row["StoreID"],
+        "name": row["ProductName"],
+        "price": float(row.get("Price") or 0),
+        "stock": int(row.get("StockQuantity") or 0),
+        "image": row.get("ProductImageURL"),
+        "is_active": bool(row.get("IsActive", 1)),
     }
 
 
-# =========================
-# ROUTES
-# =========================
-
-# 🛍️ ดึงสินค้าทั้งหมดของร้านค้า
-@product_bp.route('/store/<int:store_id>', methods=['GET'])
+@product_bp.route("/store/<int:store_id>", methods=["GET"])
 def get_products_by_store(store_id):
-    conn = get_connection()
-    cursor = conn.cursor(dictionary=True)
-
-    sql = """
-        SELECT 
-            ProductID AS id,
-            StoreID AS store_id,
-            ProductName AS name,
-            Price AS price,
-            StockQuantity AS stock,
-            ProductImageURL AS image
-        FROM Product
-        WHERE StoreID = %s
-        ORDER BY ProductName ASC
-    """
-
-    cursor.execute(sql, (store_id,))
-    products = cursor.fetchall()
-
-    cursor.close()
-    conn.close()
-
-    # 🔥 ใช้ formatter
-    formatted_products = [format_product(p) for p in products]
-
-    return jsonify({
-        "success": True,
-        "data": formatted_products
-    })
+    conn = None
+    cursor = None
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(
+            "SELECT ProductID, StoreID, ProductName, Price, StockQuantity, ProductImageURL, IsActive FROM Product WHERE StoreID = %s ORDER BY ProductName ASC",
+            (store_id,),
+        )
+        return ok([format_product(row) for row in cursor.fetchall()])
+    except Exception as e:
+        log.error("ERROR GET PRODUCTS BY STORE: %s", e)
+        return fail("An internal server error occurred", 500)
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 
-# 🔍 ดึงข้อมูลสินค้าตาม ID
-@product_bp.route('/<int:product_id>', methods=['GET'])
+@product_bp.route("/<int:product_id>", methods=["GET"])
 def get_product_by_id(product_id):
-    conn = get_connection()
-    cursor = conn.cursor(dictionary=True)
-
-    sql = """
-        SELECT 
-            ProductID AS id,
-            StoreID AS store_id,
-            ProductName AS name,
-            Price AS price,
-            StockQuantity AS stock,
-            ProductImageURL AS image
-        FROM Product
-        WHERE ProductID = %s
-    """
-
-    cursor.execute(sql, (product_id,))
-    product = cursor.fetchone()
-
-    cursor.close()
-    conn.close()
-
-    if not product:
-        return jsonify({
-            "success": False,
-            "message": "Product not found"
-        }), 404
-
-    # 🔥 ใช้ formatter
-    formatted_product = format_product(product)
-
-    return jsonify({
-        "success": True,
-        "data": formatted_product
-    })
+    conn = None
+    cursor = None
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(
+            "SELECT ProductID, StoreID, ProductName, Price, StockQuantity, ProductImageURL, IsActive FROM Product WHERE ProductID = %s LIMIT 1",
+            (product_id,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return fail("Product not found", 404)
+        return ok(format_product(row))
+    except Exception as e:
+        log.error("ERROR GET PRODUCT BY ID: %s", e)
+        return fail("An internal server error occurred", 500)
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
