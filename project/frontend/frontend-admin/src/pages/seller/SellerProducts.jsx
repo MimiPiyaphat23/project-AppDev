@@ -1,27 +1,161 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import { useStores } from '../../context/StoreContext'
 
 export default function SellerProducts() {
     const { stores: products, setStores: setProducts } = useStores()
     const [editProduct, setEditProduct] = useState(null)
+    const [isAdding, setIsAdding] = useState(false)
     const [deleteId, setDeleteId] = useState(null)
 
-    const handleUpdate = () => {
-        setProducts(products.map((p) =>
-            p.id === editProduct.id
-                ? {
-                    ...editProduct,
-                    status: editProduct.stock === 0 ? 'Out of Stock' : editProduct.stock <= 5 ? 'Low Stock' : 'In Stock'
+    const [newProduct, setNewProduct] = useState({
+        name: '',
+        price: '',
+        stock: '',
+        logo: null,
+        category_id: 1 // Default category
+    })
+
+    // 1. ดึงข้อมูลจาก Database เมื่อโหลดหน้าจอ
+    useEffect(() => {
+        const fetchProducts = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                // หมายเหตุ: ต้องมี endpoint GET /api/products/my-store หรือคล้ายกันใน backend
+                const response = await fetch('http://localhost:5000/api/products/', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await response.json();
+                if (result.success) {
+                    // แปลง format ข้อมูลให้ตรงกับ UI (ถ้าจำเป็น)
+                    const formatted = result.data.map(p => ({
+                        id: p.id,
+                        name: p.name,
+                        price: p.price,
+                        stock: p.stock,
+                        status: p.stock === 0 ? 'Out of Stock' : p.stock <= 5 ? 'Low Stock' : 'In Stock'
+                    }));
+                    setProducts(formatted);
                 }
-                : p
-        ))
-        setEditProduct(null)
+            } catch (err) { console.error("Load failed:", err); }
+        };
+        fetchProducts();
+    }, []);
+
+    const handleAdd = async () => {
+    try {
+        const token = localStorage.getItem('token');
+
+        const response = await fetch('http://localhost:5000/api/products/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                ProductName: newProduct.name,
+                Price: parseFloat(newProduct.price),
+                StockQuantity: parseInt(newProduct.stock),
+                CategoryID: newProduct.category_id,
+                ImageURL: "" 
+            })
+        });
+
+        if (response.status === 401) {
+            alert("Session expired");
+            localStorage.removeItem('token');
+            window.location.href = '/login';
+            return;
+        }
+
+        const result = await response.json();
+
+        if (result.success) {
+            alert("Product created successfully!");
+
+            // ❌ อย่า reload ทั้งหน้า
+            // window.location.reload();
+
+            // ✅ update state แทน
+            const newItem = {
+                id: result.data.id,
+                name: newProduct.name,
+                price: parseFloat(newProduct.price),
+                stock: parseInt(newProduct.stock),
+                status:
+                    parseInt(newProduct.stock) === 0
+                        ? 'Out of Stock'
+                        : parseInt(newProduct.stock) <= 5
+                        ? 'Low Stock'
+                        : 'In Stock'
+            };
+
+            setProducts(prev => [...prev, newItem]);
+
+            setIsAdding(false);
+            setNewProduct({ name: '', price: '', stock: '', logo: null, category_id: 1 });
+
+        } else {
+            alert(result.message || 'Create failed');
+        }
+
+    } catch (error) {
+        console.error(error);
+        alert("Backend not running or network error");
+    }
+};
+
+    const handleUpdate = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`http://localhost:5000/api/products/${editProduct.id}`, {
+                method: 'PUT',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}` 
+                },
+                body: JSON.stringify({
+                    name: editProduct.name,
+                    price: parseFloat(editProduct.price),
+                    stock: parseInt(editProduct.stock),
+                    category_id: editProduct.category_id
+                })
+            });
+
+            if (response.ok) {
+                alert("Product updated successfully");
+                setEditProduct(null);
+                window.location.reload();
+            } else {
+                const result = await response.json();
+                alert(result.message || "Update failed");
+            }
+        } catch (error) {
+            console.error("Update error:", error);
+        }
     }
 
-    const handleDelete = () => {
-        setProducts(products.filter((p) => p.id !== deleteId))
-        setDeleteId(null)
+    const handleDelete = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`http://localhost:5000/api/products/${deleteId}`, {
+                method: 'DELETE',
+                headers: { 
+                    'Authorization': `Bearer ${token}` 
+                }
+            });
+
+            if (response.ok) {
+                alert("Product deleted successfully");
+                setDeleteId(null);
+                window.location.reload();
+            } else {
+                const result = await response.json();
+                alert(result.message || "Delete failed");
+            }
+        } catch (error) {
+            console.error("Delete error:", error);
+        }
     }
 
     return (
@@ -32,7 +166,8 @@ export default function SellerProducts() {
             <div className="bg-white rounded-xl shadow-sm p-6">
                 <div className="flex justify-between items-center mb-4">
                     <p className="font-semibold text-gray-700">All Products ({products.length})</p>
-                    <button className="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                    <button onClick={() => setIsAdding(true)} 
+                        className="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
                         + Add Product
                     </button>
                 </div>
@@ -135,6 +270,68 @@ export default function SellerProducts() {
                             <button onClick={() => setEditProduct(null)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
                             <button onClick={handleUpdate} className="px-6 py-2 bg-gray-700 hover:bg-gray-800 text-white text-sm rounded-lg font-medium">
                                 Update Product
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Add Modal */}
+            {isAdding && (
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl shadow-xl p-8 w-full max-w-md">
+                        <div className="flex justify-between items-start mb-6">
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-800">Add New Product</h3>
+                                <p className="text-sm text-gray-400">Enter product details</p>
+                            </div>
+                            <button onClick={() => setIsAdding(false)} className="text-gray-400 hover:text-gray-700">✕</button>
+                        </div>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Product Name</label>
+                                <input type="text" value={newProduct.name}
+                                    onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                                    className="w-full border border-gray-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#ECDEAB]" placeholder="Product name..." />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Price (฿)</label>
+                                <input type="number" value={newProduct.price}
+                                    onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
+                                    className="w-full border border-gray-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#ECDEAB]" placeholder="0.00" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Stock Quantity</label>
+                                <input type="number" value={newProduct.stock}
+                                    onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
+                                    className="w-full border border-gray-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#ECDEAB]" placeholder="0" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                                <select 
+                                    value={newProduct.category_id}
+                                    onChange={(e) => setNewProduct({ ...newProduct, category_id: parseInt(e.target.value) })}
+                                    className="w-full border border-gray-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#ECDEAB]">
+                                    <option value="1">Beverages</option>
+                                    <option value="2">Clothing</option>
+                                    <option value="3">Gadgets</option>
+                                    <option value="5">Meals</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Product Image</label>
+                                <input type="file" accept="image/*"
+                                    onChange={(e) => {
+                                        const file = e.target.files[0]
+                                        if (file) setNewProduct({ ...newProduct, logo: URL.createObjectURL(file) })
+                                    }}
+                                    className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3 mt-6">
+                            <button onClick={() => setIsAdding(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
+                            <button onClick={handleAdd} className="px-6 py-2 bg-gray-700 hover:bg-gray-800 text-white text-sm rounded-lg font-medium">
+                                Create Product
                             </button>
                         </div>
                     </div>
