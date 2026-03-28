@@ -4,7 +4,7 @@ from db import get_connection
 floor_bp = Blueprint('floor_bp', __name__)
 
 # ==========================================
-# FORMATTERS (แปลง DB → Frontend)
+# FORMATTERS
 # ==========================================
 
 def format_floor(f):
@@ -12,31 +12,41 @@ def format_floor(f):
         "id": f.get("FloorID"),
         "name": f.get("FloorName"),
         "mall_id": f.get("MallID"),
-        "floor_code": f.get("FloorCode"), # ดึงเพิ่มจาก Schema ใหม่
-        "floor_order": f.get("FloorOrder"), # ดึงเพิ่มเผื่อ Front-end เอาไปจัดเรียง
-        "store_count": f.get("StoreCount", 0) # อิงชื่อให้ตรงกับ DB ใหม่
+        "floor_code": f.get("FloorCode"),   # ⭐ ใช้ตัวนี้แทน
+        "floor_order": f.get("FloorOrder"),
+        "store_count": f.get("StoreCount", 0)
     }
+
 
 def format_store(s):
     return {
         "id": s.get("StoreID"),
         "name": s.get("StoreName"),
+
+        # ❌ อย่าใช้ FloorID อย่างเดียว
+        # ✅ ต้องส่ง floor_code ไป frontend
+        "floor": s.get("FloorCode"),
+
         "floor_id": s.get("FloorID"),
+
         "position": {
             "x": s.get("PosX"),
             "y": s.get("PosY")
         },
+
         "logo": s.get("LogoURL"),
+
         "category": {
-            "name": s.get("StoreCategoryName"), # ดึงจาก Denormalized field ได้เลย
-            "icon": s.get("StoreCategoryIcon")  # ดึงจาก Denormalized field ได้เลย
-        }
+            "name": s.get("StoreCategoryName"),
+            "icon": s.get("StoreCategoryIcon")
+        },
+
+        "description": s.get("Description")
     }
 
 
 # ==========================================
 # 1. GET FLOORS BY MALL
-# GET /api/floors/mall/<mall_id>
 # ==========================================
 
 @floor_bp.route('/mall/<int:mall_id>', methods=['GET'])
@@ -48,7 +58,6 @@ def get_floors_by_mall(mall_id):
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
 
-        # อัปเดต SQL ดึงคอลัมน์ให้ตรง Schema
         sql = """
             SELECT 
                 FloorID,
@@ -73,7 +82,7 @@ def get_floors_by_mall(mall_id):
         }), 200
 
     except Exception as e:
-        print(f"🔥 ERROR GET FLOORS: {e}") # เพิ่มบรรทัดนี้
+        print(f"🔥 ERROR GET FLOORS: {e}")
         return jsonify({
             "success": False,
             "message": str(e)
@@ -85,12 +94,11 @@ def get_floors_by_mall(mall_id):
 
 
 # ==========================================
-# 2. GET STORES BY FLOOR
-# GET /api/floors/<floor_id>/stores
+# 2. GET STORES BY FLOOR (ใช้ floor_code)
 # ==========================================
 
-@floor_bp.route('/<int:floor_id>/stores', methods=['GET'])
-def get_stores_by_floor(floor_id):
+@floor_bp.route('/stores/', methods=['GET'])
+def get_all_stores():
     conn = None
     cursor = None
 
@@ -98,24 +106,24 @@ def get_stores_by_floor(floor_id):
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
 
-        # เราเก็บ CategoryName กับ CategoryIcon ไว้ในตาราง Store 
-        # ดังนั้นไม่ต้อง JOIN ตาราง StoreCategory แล้ว ทำให้โหลดเร็วขึ้นด้วย
         sql = """
             SELECT 
-                StoreID,
-                StoreName,
-                FloorID,
-                PosX,
-                PosY,
-                LogoURL,
-                StoreCategoryName,
-                StoreCategoryIcon
-            FROM Store
-            WHERE FloorID = %s
-            ORDER BY StoreName ASC
+                s.StoreID,
+                s.StoreName,
+                s.FloorID,
+                s.PosX,
+                s.PosY,
+                s.LogoURL,
+                s.StoreCategoryName,
+                s.StoreCategoryIcon,
+                s.Description,
+                f.FloorCode   -- ⭐ ตัวสำคัญ
+            FROM Store s
+            JOIN Floor f ON s.FloorID = f.FloorID
+            ORDER BY s.StoreName ASC
         """
 
-        cursor.execute(sql, (floor_id,))
+        cursor.execute(sql)
         stores = cursor.fetchall()
 
         formatted = [format_store(s) for s in stores]
@@ -126,6 +134,7 @@ def get_stores_by_floor(floor_id):
         }), 200
 
     except Exception as e:
+        print(f"🔥 ERROR GET ALL STORES: {e}")
         return jsonify({
             "success": False,
             "message": str(e)

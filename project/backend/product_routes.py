@@ -30,15 +30,15 @@ def get_products_by_store(store_id):
 
     sql = """
         SELECT 
-            id,
-            store_id,
-            name,
-            price,
-            stock,
-            image
+            ProductID AS id,
+            StoreID AS store_id,
+            ProductName AS name,
+            Price AS price,
+            StockQuantity AS stock,
+            ProductImageURL AS image
         FROM Product
-        WHERE store_id = %s
-        ORDER BY name ASC
+        WHERE StoreID = %s
+        ORDER BY ProductName ASC
     """
 
     cursor.execute(sql, (store_id,))
@@ -64,14 +64,14 @@ def get_product_by_id(product_id):
 
     sql = """
         SELECT 
-            id,
-            store_id,
-            name,
-            price,
-            stock,
-            image
+            ProductID AS id,
+            StoreID AS store_id,
+            ProductName AS name,
+            Price AS price,
+            StockQuantity AS stock,
+            ProductImageURL AS image
         FROM Product
-        WHERE id = %s
+        WHERE ProductID = %s
     """
 
     cursor.execute(sql, (product_id,))

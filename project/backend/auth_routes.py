@@ -77,11 +77,11 @@ def register_user():
         cursor = conn.cursor()
         
         # Check if username or email already exists
-        cursor.execute("SELECT id FROM `User` WHERE username = %s OR email = %s", (username, email))
+        cursor.execute("SELECT UserID FROM `User` WHERE Username = %s OR Email = %s", (username, email))
         if cursor.fetchone():
             return jsonify({"status": "error", "message": "Username or Email already exists"}), 409
 
-        sql = "INSERT INTO `User` (username, email, password_hash, role_id) VALUES (%s, %s, %s, %s)"
+        sql = "INSERT INTO `User` (Username, Email, PasswordHash, RoleID) VALUES (%s, %s, %s, %s)"
         cursor.execute(sql, (username, email, hashed_password.decode('utf-8'), role_id))
         conn.commit()
         
@@ -121,9 +121,15 @@ def login():
 
         # --- SRS Compliance: Fetch StoreID for StoreOwners, login via Email ---
         sql = """
-            SELECT u.id, u.username, u.email, u.password_hash, u.store_id, r.role_name
+            SELECT 
+                u.UserID AS id, 
+                u.Username AS username, 
+                u.Email AS email, 
+                u.PasswordHash AS password_hash, 
+                u.StoreID AS store_id, 
+                r.RoleName AS role_name
             FROM `User` u
-            JOIN Role r ON u.role_id = r.role_id
+            JOIN Role r ON u.RoleID = r.RoleID
             WHERE u.email = %s
         """
         cursor.execute(sql, (email,))
@@ -193,9 +199,14 @@ def get_profile(current_user):
 
         # Fetch user details from the database
         sql = """
-            SELECT u.id, u.username, u.email, r.role_name as role, u.store_id
+            SELECT 
+                u.UserID AS id, 
+                u.Username AS username, 
+                u.Email AS email, 
+                r.RoleName AS role, 
+                u.StoreID AS store_id
             FROM `User` u
-            JOIN Role r ON u.role_id = r.role_id
+            JOIN Role r ON u.RoleID = r.RoleID
             WHERE u.id = %s
         """
         cursor.execute(sql, (user_id,))

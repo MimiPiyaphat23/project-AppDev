@@ -13,6 +13,24 @@ const floors = [
 
 export default function MapEditorDashboard() {
     const { stores, setStores, areas, setAreas } = useStores()
+    useEffect(() => {
+    fetch('http://localhost:5000/api/stores')
+    .then(res => res.json())
+    .then(data => {
+        const formatted = data.data.map(item => ({
+            id: item.id,
+            name: item.name,
+            floor: item.floor,
+            category: item.category?.name,
+            icon: item.category?.icon || '🏪',
+            logo: item.logo,
+            description: item.description,
+            position: item.position
+        }))
+
+        setStores(formatted)
+    })
+    }, [])
     const [currentFloor, setCurrentFloor] = useState('LG')
     const [deleteId, setDeleteId] = useState(null)
     const [editStore, setEditStore] = useState(null)
@@ -106,8 +124,14 @@ export default function MapEditorDashboard() {
     }, [])
 
     const handleDelete = () => {
-        setStores(stores.filter((s) => s.id !== deleteId))
-        setDeleteId(null)
+        fetch(`http://localhost:5000/api/stores/${deleteId}`, {
+            method: 'DELETE'
+        })
+        .then(() => {
+            setStores(stores.filter((s) => s.id !== deleteId))
+            setDeleteId(null)
+        })
+        .catch(err => console.error('Delete error:', err))
     }
 
     const getCentroid = (points) => ({
@@ -487,16 +511,16 @@ export default function MapEditorDashboard() {
                                 onClick={() => {
                                     if (!newStore.name || !newStore.category || !newStore.email || !newStore.password) return
                                     if (newStore.password !== newStore.confirmPassword) return
-                                    setStores([...stores, {
-                                        id: Date.now(),
-                                        name: newStore.name,
-                                        category: newStore.category,
-                                        floor: newStore.floor,
-                                        icon: '🏪',
-                                        logo: newStore.logo,
-                                        description: newStore.description,
-                                        email: newStore.email,
-                                    }])
+                                    fetch('http://localhost:5000/api/stores', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(newStore)
+                                    })
+                                    .then(res => res.json())
+                                    .then(data => {
+                                        setStores([...stores, data])
+                                    })
+                                    .catch(err => console.error('Add store error:', err))
                                     setNewStore({ name: '', category: '', floor: 'G', description: '', logo: null, email: '', password: '', confirmPassword: '' })
                                     setShowAddStore(false)
                                 }}
@@ -588,8 +612,17 @@ export default function MapEditorDashboard() {
                                 <button
                                     onClick={() => {
                                         if (!editStore.name || !editStore.category) return
-                                        setStores(stores.map(s => s.id === editStore.id ? editStore : s))
+                                        fetch(`http://localhost:5000/api/stores/${editStore.id}`, {
+                                        method: 'PUT',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(editStore)
+                                    })
+                                    .then(res => res.json())
+                                    .then(updated => {
+                                        setStores(stores.map(s => s.id === updated.id ? updated : s))
                                         setEditStore(null)
+                                    })
+                                    .catch(err => console.error('Update error:', err))
                                     }}
                                     className="px-6 py-2 bg-gray-700 hover:bg-gray-800 text-white text-sm rounded-lg font-medium"
                                 >

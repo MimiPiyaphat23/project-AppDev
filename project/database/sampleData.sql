@@ -24,10 +24,8 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- -----------------------------------------------------
 -- 1. Insert Roles
 -- -----------------------------------------------------
-INSERT INTO `Role` (`RoleName`) VALUES
-('Admin'),
-('StoreOwner'),
-('Customer');
+INSERT INTO MallMAP.Role (RoleName)
+VALUES ('admin'), ('seller'), ('user');
 
 -- -----------------------------------------------------
 -- 2. Insert Users (Password: 123456)
@@ -52,32 +50,49 @@ INSERT INTO `Mall` (`MallName`, `Location`, `IsPopular`, `MallImageURL`)
 VALUES 
 ('Central Mall', 'Bangkok', 1, 'https://example.com/mall.jpg');
 
--- -----------------------------------------------------
--- 5. Insert Floor
--- -----------------------------------------------------
-INSERT INTO `Floor` (`FloorName`, `MallID`, `FloorCode`, `FloorOrder`, `StoreCount`) VALUES 
-('Floor 1', 1, '1F', 1, 3);
+INSERT INTO MallMAP.Floor (FloorName, MallID, FloorCode, FloorOrder)
+VALUES
+('Lower Ground', 1, 'LG', 0),
+('Ground Floor', 1, 'G', 1),
+('Floor 1', 1, '1', 2);
 
+INSERT INTO MallMAP.StoreCategory (StoreCategoryName)
+VALUES ('Sports'), ('Food'), ('Electronics'), ('Clothing');
 -- -----------------------------------------------------
--- 6. Insert Stores
+-- 2. Insert Users (Password: 123456)
 -- -----------------------------------------------------
-INSERT INTO `Store` (
-  `StoreID`, 
-  `UserID`, 
-  `StoreName`, 
-  `StoreCategoryName`, 
-  `StoreCategoryIcon`, 
-  `StoreCategoryID`, 
-  `Description`, 
-  `Phone`, 
-  `OpeningHours`, 
-  `LogoURL`, 
-  `MallID`, 
-  `FloorName`, 
-  `FloorID`, 
-  `PosX`, 
-  `PosY`
-) VALUES
-(1, 2, 'Store 1', 'Food', 'food-icon.png', 1, 'Description 1', '02-111-1111', '10:00 - 22:00', 'logo1.png', 1, 'Floor 1', 1, 100.0, 200.0),
-(2, 2, 'Store 2', 'Fashion', 'fashion-icon.png', 2, 'Description 2', '02-222-2222', '10:00 - 22:00', 'logo2.png', 1, 'Floor 1', 1, 150.0, 250.0),
-(3, 2, 'Store 3', 'Electronics', 'elec-icon.png', 3, 'Description 3', '02-333-3333', '10:00 - 22:00', 'logo3.png', 1, 'Floor 1', 1, 200.0, 300.0);
+INSERT INTO MallMAP.User (
+    UserName,
+    Email,
+    PasswordHash,
+    RoleID
+)
+VALUES (
+    'seller1',
+    'seller1@email.com',
+    '1234',
+    2
+);
+
+INSERT INTO MallMAP.Store (
+    UserID,
+    StoreName,
+    StoreCategoryID,
+    StoreCategoryName,
+    StoreCategoryIcon,
+    MallID,
+    FloorID,
+    PosX,
+    PosY
+)
+VALUES (
+    1,
+    'Nike Store',
+    1,
+    'Sports',
+    'shoe',
+    1,
+    2,
+    50,
+    40
+);
