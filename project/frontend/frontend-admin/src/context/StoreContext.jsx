@@ -8,6 +8,7 @@ const normalizeStore = (item) => ({
   name: item.name,
   category: item.category?.name || item.category_name || '-',
   floor: item.floor,
+  floor_id: item.floor_id,
   icon: item.category?.icon || '🏬',
   logo: item.logo,
   phone: item.phone,
@@ -19,6 +20,8 @@ const normalizeStore = (item) => ({
   stock: item.stock,
   status: item.status,
   position: item.position,
+  store_category_id: item.store_category_id,
+  mall_id: item.mall_id,
 })
 
 export const StoreProvider = ({ children }) => {

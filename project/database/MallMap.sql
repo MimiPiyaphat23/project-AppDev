@@ -75,7 +75,7 @@ CREATE TABLE `Store` (
   `UserID` INT NOT NULL,
   `StoreName` VARCHAR(255) NOT NULL,
   `StoreCategoryName` VARCHAR(255) NOT NULL,
-  `StoreCategoryIcon` VARCHAR(20) NOT NULL DEFAULT '🏬',
+  `StoreCategoryIcon` VARCHAR(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'shopping-bag',
   `StoreCategoryID` INT NOT NULL,
   `Description` VARCHAR(255) NOT NULL DEFAULT '',
   `Phone` VARCHAR(20) NOT NULL DEFAULT '',
@@ -103,7 +103,7 @@ CREATE TABLE `Store` (
   CONSTRAINT `fk_Store_Mall1`
     FOREIGN KEY (`MallID`) REFERENCES `Mall` (`MallID`)
     ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB;
+) ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE `Category` (
   `CategoryID` INT NOT NULL AUTO_INCREMENT,

@@ -41,4 +41,18 @@ export const storeAPI = {
   delete: (id) => http.delete(`/stores/${id}`),
 }
 
+export const categoryAPI = {
+  getAll: () => http.get('/categories/'),
+  create: (data) => http.post('/categories/', data),
+}
+
+export const mallAPI = {
+  getAll: () => http.get('/malls/'),
+}
+
+export const floorAPI = {
+  getAll: () => http.get('/floors/'),
+  getByMall: (mallId) => http.get(`/floors/mall/${mallId}`),
+}
+
 export default http

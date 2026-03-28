@@ -159,19 +159,44 @@ def create_store(current_user):
     cursor = None
     try:
         data = request.get_json(silent=True) or {}
+        log.info("CREATE STORE REQUEST: %s", data)
+        
         required = ["StoreName", "StoreCategoryName", "StoreCategoryID", "MallID", "FloorID"]
         missing = [field for field in required if not data.get(field)]
         if missing:
+            log.warning("Missing required fields: %s", missing)
             return fail(f"Missing required fields: {', '.join(missing)}", 400)
 
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
+        
+        # Verify Mall exists
+        cursor.execute("SELECT MallID FROM Mall WHERE MallID = %s", (data["MallID"],))
+        if not cursor.fetchone():
+            log.warning("Mall not found with ID: %s", data["MallID"])
+            return fail(f"Mall not found with ID {data['MallID']}", 404)
+        
+        # Verify Floor exists
         cursor.execute("SELECT FloorName FROM Floor WHERE FloorID = %s", (data["FloorID"],))
         floor = cursor.fetchone()
         if not floor:
-            return fail("Floor not found", 404)
+            log.warning("Floor not found with ID: %s", data["FloorID"])
+            return fail(f"Floor not found with ID {data['FloorID']}", 404)
+        
+        # Verify StoreCategoryID exists
+        cursor.execute("SELECT StoreCategoryName FROM StoreCategory WHERE StoreCategoryID = %s", (data["StoreCategoryID"],))
+        category = cursor.fetchone()
+        if not category:
+            log.warning("Category not found with ID: %s", data["StoreCategoryID"])
+            return fail(f"Category not found with ID {data['StoreCategoryID']}", 404)
 
         user_id = data.get("UserID") or current_user.get("user_id")
+        if not user_id:
+            log.warning("No user ID found in current_user: %s", current_user)
+            return fail("User ID not found", 400)
+            
+        log.info("Inserting store with UserID: %s, StoreName: %s, FloorID: %s, MallID: %s", user_id, data["StoreName"], data["FloorID"], data["MallID"])
+        
         cursor.execute(
             """
             INSERT INTO Store (
@@ -183,7 +208,7 @@ def create_store(current_user):
                 user_id,
                 data["StoreName"],
                 data["StoreCategoryName"],
-                data.get("StoreCategoryIcon") or "🏬",
+                data.get("StoreCategoryIcon") or "shopping-bag",
                 data["StoreCategoryID"],
                 data.get("Description") or "",
                 data.get("Phone") or "",
@@ -198,10 +223,11 @@ def create_store(current_user):
         )
         store_id = cursor.lastrowid
         conn.commit()
+        log.info("Store created successfully with ID: %s", store_id)
         return ok({"id": store_id}, message="Store created successfully", status=201)
     except Exception as e:
-        log.error("ERROR CREATE STORE: %s", e)
-        return fail("An internal server error occurred", 500)
+        log.error("ERROR CREATE STORE: %s", e, exc_info=True)
+        return fail(f"An internal server error occurred: {str(e)}", 500)
     finally:
         if cursor:
             cursor.close()
@@ -216,10 +242,34 @@ def update_store(current_user, store_id):
     cursor = None
     try:
         data = request.get_json(silent=True) or {}
+        log.info("UPDATE STORE REQUEST (ID: %s): %s", store_id, data)
+        
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT FloorName FROM Floor WHERE FloorID = %s", (data.get("FloorID"),))
-        floor = cursor.fetchone() if data.get("FloorID") else None
+        
+        # Verify Store exists
+        cursor.execute("SELECT StoreID FROM Store WHERE StoreID = %s", (store_id,))
+        if not cursor.fetchone():
+            log.warning("Store not found with ID: %s", store_id)
+            return fail("Store not found", 404)
+        
+        # Verify Floor exists if FloorID is provided
+        floor = None
+        if data.get("FloorID"):
+            cursor.execute("SELECT FloorName FROM Floor WHERE FloorID = %s", (data["FloorID"],))
+            floor = cursor.fetchone()
+            if not floor:
+                log.warning("Floor not found with ID: %s", data["FloorID"])
+                return fail(f"Floor not found with ID {data['FloorID']}", 404)
+        
+        # Verify StoreCategoryID exists if provided
+        if data.get("StoreCategoryID"):
+            cursor.execute("SELECT StoreCategoryName FROM StoreCategory WHERE StoreCategoryID = %s", (data["StoreCategoryID"],))
+            category = cursor.fetchone()
+            if not category:
+                log.warning("Category not found with ID: %s", data["StoreCategoryID"])
+                return fail(f"Category not found with ID {data['StoreCategoryID']}", 404)
+        
         cursor.execute(
             """
             UPDATE Store SET
@@ -240,7 +290,7 @@ def update_store(current_user, store_id):
             (
                 data.get("StoreName"),
                 data.get("StoreCategoryName"),
-                data.get("StoreCategoryIcon") or "🏬",
+                data.get("StoreCategoryIcon") or "shopping-bag",
                 data.get("StoreCategoryID"),
                 data.get("Description") or "",
                 data.get("Phone") or "",
@@ -254,12 +304,11 @@ def update_store(current_user, store_id):
             ),
         )
         conn.commit()
-        if cursor.rowcount == 0:
-            return fail("Store not found", 404)
+        log.info("Store updated successfully with ID: %s", store_id)
         return ok(message="Store updated successfully")
     except Exception as e:
-        log.error("ERROR UPDATE STORE: %s", e)
-        return fail("An internal server error occurred", 500)
+        log.error("ERROR UPDATE STORE: %s", e, exc_info=True)
+        return fail(f"An internal server error occurred: {str(e)}", 500)
     finally:
         if cursor:
             cursor.close()
