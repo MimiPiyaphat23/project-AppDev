@@ -1,28 +1,58 @@
-import axios from 'axios';
+import axios from 'axios'
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 const http = axios.create({
   baseURL: BASE_URL,
   headers: {
     'Content-Type': 'application/json',
-    'ngrok-skip-browser-warning': 'true'
-  }
-});
+    'ngrok-skip-browser-warning': 'true',
+  },
+})
 
-// แนบ Token สำหรับ Admin/Seller (ถ้ามีระบบ Login แล้ว)
 http.interceptors.request.use((config) => {
-  const token = localStorage.getItem('admin_token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
+  const token = localStorage.getItem('admin_token')
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  return config
+})
+
+http.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('admin_token')
+      localStorage.removeItem('admin_user')
+    }
+    return Promise.reject(error)
+  }
+)
+
+export const authAPI = {
+  login: (data) => http.post('/auth/login', data),
+  getProfile: () => http.get('/auth/profile'),
+}
 
 export const storeAPI = {
-  getAll: () => http.get('/stores/'), // ใส่ trailing slash ให้ตรงกับโครงสร้าง Flask Blueprint
+  getAll: () => http.get('/stores/'),
   getById: (id) => http.get(`/stores/${id}`),
+  getByMall: (mallId) => http.get(`/stores/mall/${mallId}`),
   create: (data) => http.post('/stores/', data),
   update: (id, data) => http.put(`/stores/${id}`, data),
   delete: (id) => http.delete(`/stores/${id}`),
-};
+}
 
-export default http;
+export const categoryAPI = {
+  getAll: () => http.get('/categories/'),
+  create: (data) => http.post('/categories/', data),
+}
+
+export const mallAPI = {
+  getAll: () => http.get('/malls/'),
+}
+
+export const floorAPI = {
+  getAll: () => http.get('/floors/'),
+  getByMall: (mallId) => http.get(`/floors/mall/${mallId}`),
+}
+
+export default http
