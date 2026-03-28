@@ -14,14 +14,14 @@ from db import get_connection
 # 1. นำเข้า Blueprints ทั้งหมดของคุณ
 from auth_routes import auth_bp
 from map_routes import map_bp
-from store_routes import store_bp
+from routes.store_route import store_bp
 from product_routes import product_bp
 from favorite_routes import favorite_bp
 from upload_routes import upload_bp
 from user_routes import user_bp
-from category_routes import category_bp
-from mall_routes import mall_bp
-from floor_routes import floor_bp # <--- ADDED
+from routes.category_route import category_bp
+from routes.mall_route import mall_bp
+from routes.floor_route import floor_bp # <--- ADDED
 
 def create_app():
     app = Flask(__name__)
