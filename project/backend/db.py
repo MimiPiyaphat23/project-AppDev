@@ -9,17 +9,17 @@ def get_connection():
     try:
         conn = mysql.connector.connect(
             host=os.environ.get('DB_HOST', '127.0.0.1'),
-            port=int(os.environ.get('DB_PORT', 3306)),  # ✅ สำคัญมาก (เพิ่มตรงนี้)
+            port=int(os.environ.get('DB_PORT', 3306)),  # สำคัญมาก (เพิ่มตรงนี้)
             user=os.environ.get('DB_USER', 'root'),
             password=os.environ.get('DB_PASSWORD', ''),
             database=os.environ.get('DB_NAME', 'mallmap')
         )
 
         if conn.is_connected():
-            print("✅ Connected to database successfully")
+            print("[OK] Connected to database successfully")
 
         return conn
 
     except mysql.connector.Error as err:
-        print(f"❌ Database connection error: {err}")
+        print(f"[ERROR] Database connection error: {err}")
         raise RuntimeError(f"Database connection failed: {err}")

@@ -26,8 +26,22 @@ const normalizeStore = (item) => ({
 
 export const StoreProvider = ({ children }) => {
   const [stores, setStores] = useState([])
-  const [areas, setAreas] = useState([])
   const [loading, setLoading] = useState(false)
+
+  // ✅ โหลด areas จาก localStorage ตอน init
+  const [areas, setAreas] = useState(() => {
+    try {
+      const saved = localStorage.getItem('mall_areas')
+      return saved ? JSON.parse(saved) : []
+    } catch { return [] }
+  })
+
+  // ✅ save areas ลง localStorage ทุกครั้งที่เปลี่ยน
+  const setAreasWithSave = (newAreas) => {
+    const value = typeof newAreas === 'function' ? newAreas(areas) : newAreas
+    localStorage.setItem('mall_areas', JSON.stringify(value))
+    setAreas(value)
+  }
 
   const fetchStores = async () => {
     setLoading(true)
@@ -48,7 +62,7 @@ export const StoreProvider = ({ children }) => {
   }, [])
 
   return (
-    <StoreContext.Provider value={{ stores, setStores, areas, setAreas, loading, refreshStores: fetchStores }}>
+    <StoreContext.Provider value={{ stores, setStores, areas, setAreas: setAreasWithSave, loading, refreshStores: fetchStores }}>
       {children}
     </StoreContext.Provider>
   )
