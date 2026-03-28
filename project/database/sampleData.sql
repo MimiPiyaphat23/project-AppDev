@@ -53,6 +53,8 @@ VALUES
 -- -----------------------------------------------------
 -- 4. Insert Floors (Fix IDs to match your store data)
 -- -----------------------------------------------------
+INSERT INTO `Floor` (`FloorName`, `MallID`, `FloorCode`, `FloorOrder`, `StoreCount`) VALUES 
+('Floor 1', 1, '1F', 1, 3);
 
 -- -----------------------------------------------------
 -- 5. Insert Users (Password: 123456)
