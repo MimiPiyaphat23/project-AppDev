@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from db import get_connection
 from logger import log
 
-mall_bp = Blueprint("mall_bp", __name__)
+mall_bp = Blueprint('mall_bp', __name__)
 
 
 # =========================
@@ -13,9 +13,9 @@ def format_mall(m):
         "id": m.get("MallID"),
         "name": m.get("MallName"),
         "location": m.get("Location"),
-        "store_count": m.get("StoreCount", 0), # ดึงจากคอลัมน์ DB ตรงๆ เลย
-        "is_popular": m.get("IsPopular", 0),
-        "image": m.get("MallImageURL") # เผื่อ Front-end ต้องการใช้
+        "store_count": m.get("StoreCount", 0),
+        "image": m.get("MallImageURL"),
+        "is_popular": bool(m.get("IsPopular", 0))
     }
 
 
@@ -29,27 +29,18 @@ def get_malls():
 
     try:
         search = request.args.get('search', '').strip()
-
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
 
-        sql = """
-            SELECT 
-                MallID,
-                MallName,
-                Location,
-                IsPopular,
-                StoreCount,
-                MallImageURL
-            FROM Mall
-        """
-
-        if search:
-            sql += " WHERE MallName LIKE %s OR Location LIKE %s"
-            cursor.execute(sql, (f"%{search}%", f"%{search}%"))
+        if search and search != "undefined":
+            sql = "SELECT * FROM Mall WHERE MallName LIKE %s OR Location LIKE %s ORDER BY MallName ASC"
+            param = f"%{search}%"
+            cursor.execute(sql, (param, param))
         else:
+            sql = "SELECT * FROM Mall ORDER BY MallName ASC"
             cursor.execute(sql)
 
+            
         malls = cursor.fetchall()
         formatted = [format_mall(m) for m in malls]
 
@@ -60,6 +51,7 @@ def get_malls():
             "data": formatted
         }), 200
 
+        return jsonify({"success": True, "data": formatted})
     except Exception as e:
         log.error(f"ERROR GET MALLS: {e}")
         return jsonify({
@@ -67,9 +59,12 @@ def get_malls():
             "message": str(e)
         }), 500
 
+        return jsonify({"success": False, "message": str(e)}), 500
     finally:
         if cursor: cursor.close()
         if conn: conn.close()
+        cursor.close()
+        conn.close()
 
 
 # =========================
@@ -79,38 +74,32 @@ def get_malls():
 def get_popular_malls():
     conn = None
     cursor = None
-
     try:
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
-
-        cursor.execute("""
-            SELECT 
-                MallID,
-                MallName,
-                Location,
-                IsPopular,
-                StoreCount,
-                MallImageURL
-            FROM Mall
-            WHERE IsPopular = 1
-        """)
-
+        cursor.execute("SELECT * FROM Mall WHERE IsPopular = 1 LIMIT 5")
         malls = cursor.fetchall()
-        formatted = [format_mall(m) for m in malls]
-
-        return jsonify({
-            "success": True,
-            "data": formatted
-        }), 200
-
+        return jsonify({"success": True, "data": [format_mall(m) for m in malls]})
     except Exception as e:
-        log.error(f"ERROR GET POPULAR MALLS: {e}")
-        return jsonify({
-            "success": False,
-            "message": str(e)
-        }), 500
+        log.error(f"ERROR GET POPULAR: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
 
+@mall_bp.route('/recent/', methods=['GET'])
+def get_recent_malls():
+    conn = None
+    cursor = None
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM Mall ORDER BY MallID DESC LIMIT 3")
+        malls = cursor.fetchall()
+        return jsonify({"success": True, "data": [format_mall(m) for m in malls]})
+    except Exception as e:
+        log.error(f"ERROR GET RECENT: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
     finally:
         if cursor: cursor.close()
         if conn: conn.close()
@@ -123,43 +112,17 @@ def get_popular_malls():
 def get_mall_by_id(mall_id):
     conn = None
     cursor = None
-
     try:
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
-
-        cursor.execute("""
-            SELECT 
-                MallID,
-                MallName,
-                Location,
-                IsPopular,
-                StoreCount,
-                MallImageURL
-            FROM Mall
-            WHERE MallID = %s
-        """, (mall_id,))
-
+        cursor.execute("SELECT * FROM Mall WHERE MallID = %s", (mall_id,))
         mall = cursor.fetchone()
-
         if not mall:
-            return jsonify({
-                "success": False,
-                "message": "Mall not found"
-            }), 404
-
-        return jsonify({
-            "success": True,
-            "data": format_mall(mall)
-        }), 200
-
+            return jsonify({"success": False, "message": "Mall not found"}), 404
+        return jsonify({"success": True, "data": format_mall(mall)})
     except Exception as e:
         log.error(f"ERROR GET MALL BY ID {mall_id}: {e}")
-        return jsonify({
-            "success": False,
-            "message": str(e)
-        }), 500
-
+        return jsonify({"success": False, "message": str(e)}), 500
     finally:
         if cursor: cursor.close()
         if conn: conn.close()

@@ -113,7 +113,7 @@ export const mallAPI = {
           : mock.MALLS;
         return ok(data);
       }
-    : (search) => http.get(`/malls?search=${search}`),
+    : (search = '') => http.get('/malls/', { params: { search: search || '' } }),
 
   // ดึง Mall ยอดนิยม
   getPopular: USE_MOCK
@@ -123,7 +123,7 @@ export const mallAPI = {
   // ดึง Mall ที่เพิ่งเข้าชมล่าสุด
   getRecent: USE_MOCK
     ? async () => { await delay(200); return ok(mock.RECENT_MALLS); }
-    : () => http.get('/malls/recent'),
+    : () => http.get('/malls/recent/'),
 
   // ดูรายละเอียด Mall ตาม ID
   getById: USE_MOCK
