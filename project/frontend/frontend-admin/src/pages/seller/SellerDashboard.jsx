@@ -1,30 +1,149 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Package, Pencil, Trash2 } from 'lucide-react'
 import { useStores } from '../../context/StoreContext'
 
 export default function SellerDashboard() {
     const { stores: products, setStores: setProducts } = useStores()
     const [editProduct, setEditProduct] = useState(null)
+    const [isAdding, setIsAdding] = useState(false)
     const [deleteId, setDeleteId] = useState(null)
+
+    const [newProduct, setNewProduct] = useState({
+        name: '',
+        price: '',
+        stock: '',
+        logo: null,
+        category_id: 1
+    })
 
     const totalStock = products.reduce((sum, p) => sum + (p.stock || 0), 0)
     const lowStock = products.filter((p) => p.stock > 0 && p.stock <= 5).length
 
-    const handleUpdate = () => {
-        setProducts(products.map((p) =>
-            p.id === editProduct.id
-                ? {
-                    ...editProduct,
-                    status: editProduct.stock === 0 ? 'Out of Stock' : editProduct.stock <= 5 ? 'Low Stock' : 'In Stock'
+    // โหลดข้อมูลจริงมาแสดงใน Dashboard
+    useEffect(() => {
+        const loadData = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) return;
+
+                const res = await fetch('http://localhost:5000/api/products/', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (res.status === 401) {
+                    localStorage.removeItem('token');
+                    window.location.href = '/login'; // หรือหน้า login ของคุณ
+                    return;
                 }
-                : p
-        ))
-        setEditProduct(null)
+
+                const result = await res.json();
+                if (result.success) {
+                    setProducts(result.data.map(p => ({
+                        id: p.id,
+                        name: p.name,
+                        price: p.price,
+                        stock: p.stock,
+                        status: p.stock === 0 ? 'Out of Stock' : p.stock <= 5 ? 'Low Stock' : 'In Stock'
+                    })));
+                }
+            } catch (err) { console.error("Load error:", err); }
+        };
+        loadData();
+    }, []);
+
+    const handleAdd = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert("Session expired. Please login again.");
+                return;
+            }
+
+            const response = await fetch('http://localhost:5000/api/products/', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}` 
+                },
+                body: JSON.stringify({
+                    name: newProduct.name,
+                    price: parseFloat(newProduct.price) || 0.0,
+                    stock: parseInt(newProduct.stock) || 0,
+                    store_id: 1, // ระบุ Store ID ที่ต้องการเพิ่มสินค้าให้ (สำหรับ Admin)
+                    category_id: newProduct.category_id || 1,
+                    image_url: ""
+                })
+            });
+
+            if (response.status === 401) {
+                alert("Session expired. Please login again.");
+                localStorage.removeItem('token');
+                window.location.href = '/login';
+                return;
+            }
+
+            const result = await response.json();
+            if (response.ok && result.success) {
+                window.location.reload();
+            } else {
+                alert(result.message || "Failed to create product (Error 401/403)");
+            }
+        } catch (error) {
+            console.error("Add error:", error);
+            alert("Network error. Please check if Backend is running.");
+        }
     }
 
-    const handleDelete = () => {
-        setProducts(products.filter((p) => p.id !== deleteId))
-        setDeleteId(null)
+    const handleUpdate = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`http://localhost:5000/api/products/${editProduct.id}`, {
+                method: 'PUT',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}` 
+                },
+                body: JSON.stringify({
+                    name: editProduct.name,
+                    price: parseFloat(editProduct.price),
+                    stock: parseInt(editProduct.stock)
+                })
+            });
+
+            if (response.ok) {
+                alert("Product updated successfully");
+                setEditProduct(null);
+                window.location.reload();
+            } else {
+                const result = await response.json();
+                alert(result.message || "Update failed");
+            }
+        } catch (error) {
+            console.error("Update error:", error);
+        }
+    }
+
+    const handleDelete = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`http://localhost:5000/api/products/${deleteId}`, {
+                method: 'DELETE',
+                headers: { 
+                    'Authorization': `Bearer ${token}` 
+                }
+            });
+
+            if (response.ok) {
+                alert("Product deleted successfully");
+                setDeleteId(null);
+                window.location.reload();
+            } else {
+                const result = await response.json();
+                alert(result.message || "Delete failed");
+            }
+        } catch (error) {
+            console.error("Delete error:", error);
+        }
     }
 
     return (
@@ -69,7 +188,8 @@ export default function SellerDashboard() {
                         <p className="font-semibold text-gray-700">Products</p>
                         <p className="text-xs text-gray-400">Manage your product inventory</p>
                     </div>
-                    <button className="flex items-center gap-2 bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                    <button onClick={() => setIsAdding(true)} 
+                        className="flex items-center gap-2 bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium">
                         + Add Product
                     </button>
                 </div>
@@ -172,6 +292,56 @@ export default function SellerDashboard() {
                             <button onClick={() => setEditProduct(null)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
                             <button onClick={handleUpdate} className="px-6 py-2 bg-gray-700 hover:bg-gray-800 text-white text-sm rounded-lg font-medium">
                                 Update Product
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Add Modal */}
+            {isAdding && (
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl shadow-xl p-8 w-full max-w-md">
+                        <div className="flex justify-between items-start mb-6">
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-800">Add New Product</h3>
+                                <p className="text-sm text-gray-400">Enter product details</p>
+                            </div>
+                            <button onClick={() => setIsAdding(false)} className="text-gray-400 hover:text-gray-700">✕</button>
+                        </div>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Product Name</label>
+                                <input type="text" value={newProduct.name}
+                                    onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                                    className="w-full border border-gray-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#ECDEAB]" placeholder="Product name..." />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Price (฿)</label>
+                                <input type="number" value={newProduct.price}
+                                    onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
+                                    className="w-full border border-gray-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#ECDEAB]" placeholder="0.00" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Stock Quantity</label>
+                                <input type="number" value={newProduct.stock}
+                                    onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
+                                    className="w-full border border-gray-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#ECDEAB]" placeholder="0" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Product Image</label>
+                                <input type="file" accept="image/*"
+                                    onChange={(e) => {
+                                        const file = e.target.files[0]
+                                        if (file) setNewProduct({ ...newProduct, logo: URL.createObjectURL(file) })
+                                    }}
+                                    className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3 mt-6">
+                            <button onClick={() => setIsAdding(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
+                            <button onClick={handleAdd} className="px-6 py-2 bg-gray-700 hover:bg-gray-800 text-white text-sm rounded-lg font-medium">
+                                Create Product
                             </button>
                         </div>
                     </div>
