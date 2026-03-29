@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
-import { useStores } from '../../context/StoreContext'
+import { useProducts } from '../../context/ProductContext'
 
 export default function SellerProducts() {
-    const { stores: products, setStores: setProducts } = useStores()
+    const { products, setProducts } = useProducts()
     const [editProduct, setEditProduct] = useState(null)
     const [isAdding, setIsAdding] = useState(false)
     const [deleteId, setDeleteId] = useState(null)
@@ -20,7 +20,7 @@ export default function SellerProducts() {
     useEffect(() => {
         const fetchProducts = async () => {
             try {
-                const token = localStorage.getItem('token');
+                const token = localStorage.getItem('admin_token');
                 // หมายเหตุ: ต้องมี endpoint GET /api/products/my-store หรือคล้ายกันใน backend
                 const response = await fetch('http://localhost:5000/api/products/', {
                     headers: { 'Authorization': `Bearer ${token}` }
@@ -33,6 +33,7 @@ export default function SellerProducts() {
                         name: p.name,
                         price: p.price,
                         stock: p.stock,
+                        logo: p.image || p.image_url || null,
                         status: p.stock === 0 ? 'Out of Stock' : p.stock <= 5 ? 'Low Stock' : 'In Stock'
                     }));
                     setProducts(formatted);
@@ -44,7 +45,7 @@ export default function SellerProducts() {
 
     const handleAdd = async () => {
     try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('admin_token');
 
         const response = await fetch('http://localhost:5000/api/products/', {
             method: 'POST',
@@ -107,7 +108,7 @@ export default function SellerProducts() {
 
     const handleUpdate = async () => {
         try {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('admin_token');
             const response = await fetch(`http://localhost:5000/api/products/${editProduct.id}`, {
                 method: 'PUT',
                 headers: { 
@@ -137,7 +138,7 @@ export default function SellerProducts() {
 
     const handleDelete = async () => {
         try {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('admin_token');
             const response = await fetch(`http://localhost:5000/api/products/${deleteId}`, {
                 method: 'DELETE',
                 headers: { 
@@ -189,7 +190,7 @@ export default function SellerProducts() {
                                     <div className="w-10 h-10 bg-gray-100 rounded flex items-center justify-center text-xl overflow-hidden">
                                         {product.logo
                                             ? <img src={product.logo} alt={product.name} className="w-full h-full object-cover" />
-                                            : product.icon || '🏪'}
+                                            : <span className='text-gray-300 text-lg'>&#128247;</span>}
                                     </div>
                                     {product.name}
                                 </td>

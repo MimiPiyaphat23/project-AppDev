@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Package, Pencil, Trash2 } from 'lucide-react'
-import { useStores } from '../../context/StoreContext'
+import { useProducts } from '../../context/ProductContext'
 
 export default function SellerDashboard() {
-    const { stores: products, setStores: setProducts } = useStores()
+    const { products, setProducts } = useProducts()
     const [editProduct, setEditProduct] = useState(null)
     const [isAdding, setIsAdding] = useState(false)
     const [deleteId, setDeleteId] = useState(null)
@@ -23,7 +23,7 @@ export default function SellerDashboard() {
     useEffect(() => {
         const loadData = async () => {
             try {
-                const token = localStorage.getItem('token');
+                const token = localStorage.getItem('admin_token');
                 if (!token) return;
 
                 const res = await fetch('http://localhost:5000/api/products/', {
@@ -31,8 +31,8 @@ export default function SellerDashboard() {
                 });
                 
                 if (res.status === 401) {
-                    localStorage.removeItem('token');
-                    window.location.href = '/login'; // หรือหน้า login ของคุณ
+                    localStorage.removeItem('admin_token');
+                    window.location.href = '/seller-login'; // หรือหน้า login ของคุณ
                     return;
                 }
 
@@ -43,6 +43,7 @@ export default function SellerDashboard() {
                         name: p.name,
                         price: p.price,
                         stock: p.stock,
+                        logo: p.image || p.image_url || null,
                         status: p.stock === 0 ? 'Out of Stock' : p.stock <= 5 ? 'Low Stock' : 'In Stock'
                     })));
                 }
@@ -53,12 +54,13 @@ export default function SellerDashboard() {
 
     const handleAdd = async () => {
         try {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('admin_token');
             if (!token) {
                 alert("Session expired. Please login again.");
                 return;
             }
 
+            const user = JSON.parse(localStorage.getItem('admin_user') || '{}')
             const response = await fetch('http://localhost:5000/api/products/', {
                 method: 'POST',
                 headers: { 
@@ -69,7 +71,7 @@ export default function SellerDashboard() {
                     name: newProduct.name,
                     price: parseFloat(newProduct.price) || 0.0,
                     stock: parseInt(newProduct.stock) || 0,
-                    store_id: 1, // ระบุ Store ID ที่ต้องการเพิ่มสินค้าให้ (สำหรับ Admin)
+                    store_id: user.store_id,
                     category_id: newProduct.category_id || 1,
                     image_url: ""
                 })
@@ -77,8 +79,8 @@ export default function SellerDashboard() {
 
             if (response.status === 401) {
                 alert("Session expired. Please login again.");
-                localStorage.removeItem('token');
-                window.location.href = '/login';
+                localStorage.removeItem('admin_token');
+                window.location.href = '/seller-login';
                 return;
             }
 
@@ -96,7 +98,7 @@ export default function SellerDashboard() {
 
     const handleUpdate = async () => {
         try {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('admin_token');
             const response = await fetch(`http://localhost:5000/api/products/${editProduct.id}`, {
                 method: 'PUT',
                 headers: { 
@@ -125,7 +127,7 @@ export default function SellerDashboard() {
 
     const handleDelete = async () => {
         try {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('admin_token');
             const response = await fetch(`http://localhost:5000/api/products/${deleteId}`, {
                 method: 'DELETE',
                 headers: { 
@@ -211,7 +213,7 @@ export default function SellerDashboard() {
                                     <div className="w-10 h-10 bg-gray-100 rounded flex items-center justify-center text-xl overflow-hidden">
                                         {product.logo
                                             ? <img src={product.logo} alt={product.name} className="w-full h-full object-cover" />
-                                            : product.icon || '🏪'}
+                                            : <span className='text-gray-300 text-lg'>&#128247;</span>}
                                     </div>
                                     {product.name}
                                 </td>
