@@ -53,3 +53,19 @@
 2026-03-27 20:03:26 - mall_map_backend - ERROR - ERROR FETCHING FLOORS FOR MALL 1: 1054 (42S22): Unknown column 'FloorLevel' in 'field list'
 2026-03-27 20:03:26 - mall_map_backend - ERROR - ERROR FETCHING FLOORS FOR MALL 1: 1054 (42S22): Unknown column 'FloorLevel' in 'field list'
 2026-03-27 20:03:27 - mall_map_backend - ERROR - ERROR FETCHING FLOORS FOR MALL 1: 1054 (42S22): Unknown column 'FloorLevel' in 'field list'
+2026-03-29 06:14:13 - mall_map_backend - ERROR - ERROR LOGIN: 'charmap' codec can't encode character '\u2705' in position 0: character maps to <undefined>
+2026-03-29 06:14:27 - mall_map_backend - ERROR - ERROR GET ALL STORES: 'charmap' codec can't encode character '\u2705' in position 0: character maps to <undefined>
+2026-03-29 06:14:28 - mall_map_backend - ERROR - ERROR GET ALL STORES: 'charmap' codec can't encode character '\u2705' in position 0: character maps to <undefined>
+2026-03-29 06:14:30 - mall_map_backend - ERROR - ERROR GET ALL STORES: 'charmap' codec can't encode character '\u2705' in position 0: character maps to <undefined>
+2026-03-29 06:14:36 - mall_map_backend - ERROR - ERROR LOGIN: 'charmap' codec can't encode character '\u2705' in position 0: character maps to <undefined>
+2026-03-29 06:19:39 - mall_map_backend - ERROR - ERROR GET ALL STORES: 'charmap' codec can't encode character '\u2705' in position 0: character maps to <undefined>
+2026-03-29 06:19:41 - mall_map_backend - ERROR - ERROR GET ALL STORES: 'charmap' codec can't encode character '\u2705' in position 0: character maps to <undefined>
+2026-03-29 06:19:57 - mall_map_backend - ERROR - ERROR LOGIN: 'charmap' codec can't encode character '\u2705' in position 0: character maps to <undefined>
+2026-03-29 06:59:35 - mall_map_backend - ERROR - ERROR GET ALL STORES: 'charmap' codec can't encode character '\u2705' in position 0: character maps to <undefined>
+2026-03-29 06:59:35 - mall_map_backend - ERROR - ERROR GET CATEGORIES: 'charmap' codec can't encode character '\u2705' in position 0: character maps to <undefined>
+2026-03-29 06:59:35 - mall_map_backend - ERROR - ERROR GET MALLS: 'charmap' codec can't encode character '\u2705' in position 0: character maps to <undefined>
+2026-03-29 06:59:38 - mall_map_backend - ERROR - ERROR GET ALL STORES: 'charmap' codec can't encode character '\u2705' in position 0: character maps to <undefined>
+2026-03-29 06:59:38 - mall_map_backend - ERROR - ERROR GET CATEGORIES: 'charmap' codec can't encode character '\u2705' in position 0: character maps to <undefined>
+2026-03-29 06:59:38 - mall_map_backend - ERROR - ERROR GET MALLS: 'charmap' codec can't encode character '\u2705' in position 0: character maps to <undefined>
+2026-03-29 06:59:40 - mall_map_backend - ERROR - ERROR GET ALL STORES: 'charmap' codec can't encode character '\u2705' in position 0: character maps to <undefined>
+2026-03-29 06:59:42 - mall_map_backend - ERROR - ERROR GET ALL STORES: 'charmap' codec can't encode character '\u2705' in position 0: character maps to <undefined>
