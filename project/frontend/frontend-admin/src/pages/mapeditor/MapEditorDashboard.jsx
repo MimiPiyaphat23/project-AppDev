@@ -14,12 +14,12 @@ const floors = [
 
 export default function MapEditorDashboard() {
     const { stores, setStores, areas, setAreas } = useStores()
-    
+
     // Categories, Malls, Floors state
     const [categories, setCategories] = useState([])
     const [malls, setMalls] = useState([])
     const [floorsByFloorCode, setFloorsByFloorCode] = useState({})
-    
+
     useEffect(() => {
         // Fetch stores
         storeAPI.getAll()
@@ -41,9 +41,10 @@ export default function MapEditorDashboard() {
                     mall_id: item.mall_id
                 }))
                 setStores(formatted)
+                localStorage.setItem('mall_stores', JSON.stringify(formatted))
             })
             .catch(err => console.error('Failed to load stores:', err))
-        
+
         // Fetch categories
         categoryAPI.getAll()
             .then(res => {
@@ -51,7 +52,7 @@ export default function MapEditorDashboard() {
                 setCategories(cats)
             })
             .catch(err => console.error('Failed to load categories:', err))
-        
+
         // Fetch malls
         mallAPI.getAll()
             .then(res => {
@@ -59,7 +60,7 @@ export default function MapEditorDashboard() {
                 setMalls(mallData)
             })
             .catch(err => console.error('Failed to load malls:', err))
-        
+
         // Fetch all floors
         floorAPI.getAll()
             .then(res => {
@@ -125,6 +126,10 @@ export default function MapEditorDashboard() {
 
     useEffect(() => { zoomRef.current = zoom }, [zoom])
     useEffect(() => { panStateRef.current = pan }, [pan])
+
+    useEffect(() => {
+        localStorage.setItem('mall_areas', JSON.stringify(areas))
+    }, [areas])
 
     useEffect(() => {
         const el = mapRef.current
@@ -290,11 +295,10 @@ export default function MapEditorDashboard() {
                                         }
                                     }}
                                     disabled={currentPoints.length < 3}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                                        currentPoints.length >= 3
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${currentPoints.length >= 3
                                             ? 'bg-green-100 text-green-700 border-green-300 hover:bg-green-200'
                                             : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                                    }`}
+                                        }`}
                                 >
                                     ✓ Confirm Area ({currentPoints.length} pts)
                                 </button>
@@ -336,16 +340,14 @@ export default function MapEditorDashboard() {
                                     setPanSync({ x: 0, y: 0 })
                                     panRef.current = { x: 0, y: 0 }
                                 }}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                                    currentFloor === floor.id
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${currentFloor === floor.id
                                         ? 'bg-gray-700 text-white border-gray-700'
                                         : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-                                }`}
+                                    }`}
                             >
                                 {floor.label}
-                                <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                                    currentFloor === floor.id ? 'bg-white text-gray-700' : 'bg-gray-100 text-gray-500'
-                                }`}>
+                                <span className={`text-xs px-1.5 py-0.5 rounded-full ${currentFloor === floor.id ? 'bg-white text-gray-700' : 'bg-gray-100 text-gray-500'
+                                    }`}>
                                     {count}
                                 </span>
                             </button>
@@ -356,9 +358,8 @@ export default function MapEditorDashboard() {
                 {/* Map Container */}
                 <div
                     ref={mapRef}
-                    className={`map-container relative bg-gray-50 rounded-lg overflow-hidden h-80 border border-gray-100 ${
-                        drawingMode ? 'cursor-crosshair' : isPanning ? 'cursor-grabbing' : 'cursor-default'
-                    }`}
+                    className={`map-container relative bg-gray-50 rounded-lg overflow-hidden h-80 border border-gray-100 ${drawingMode ? 'cursor-crosshair' : isPanning ? 'cursor-grabbing' : 'cursor-default'
+                        }`}
                     onClick={(e) => {
                         if (!drawingMode) return
                         const rect = e.currentTarget.getBoundingClientRect()
@@ -559,10 +560,9 @@ export default function MapEditorDashboard() {
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password *</label>
                                 <input type="password" placeholder="••••••••" value={newStore.confirmPassword}
                                     onChange={(e) => setNewStore({ ...newStore, confirmPassword: e.target.value })}
-                                    className={`w-full border rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#ECDEAB] ${
-                                        newStore.confirmPassword && newStore.password !== newStore.confirmPassword
+                                    className={`w-full border rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#ECDEAB] ${newStore.confirmPassword && newStore.password !== newStore.confirmPassword
                                             ? 'border-red-300 focus:ring-red-200' : 'border-gray-200 focus:border-[#ECDEAB]'
-                                    }`} />
+                                        }`} />
                                 {newStore.confirmPassword && newStore.password !== newStore.confirmPassword && (
                                     <p className="text-xs text-red-500 mt-1">Passwords do not match</p>
                                 )}
@@ -574,29 +574,29 @@ export default function MapEditorDashboard() {
                                 onClick={() => {
                                     if (!newStore.name || !newStore.category || !newStore.email || !newStore.password) return
                                     if (newStore.password !== newStore.confirmPassword) return
-                                    
+
                                     // Get category ID from categories
                                     const categoryObj = categories.find(c => c.name === newStore.category)
                                     const categoryId = categoryObj?.id
-                                    
+
                                     if (!categoryId) {
                                         alert('Please select a valid category')
                                         return
                                     }
-                                    
+
                                     // Get floor ID - try multiple methods
                                     let floorId = null
-                                    
+
                                     // Method 1: From fetched floor data
                                     let floorData = floorsByFloorCode[newStore.floor]
                                     floorId = floorData?.floor_id || floorData?.FloorID
-                                    
+
                                     // Method 2: From existing stores on this floor (fallback)
                                     if (!floorId) {
                                         const storeOnFloor = stores.find(s => s.floor === newStore.floor)
                                         floorId = storeOnFloor?.floor_id
                                     }
-                                    
+
                                     // Method 3: Hardcoded floor mapping as ultimate fallback
                                     // Maps floor codes to typical IDs (typically Floor 1-5 have IDs 1-5)
                                     if (!floorId) {
@@ -610,18 +610,18 @@ export default function MapEditorDashboard() {
                                         }
                                         floorId = floorCodeToId[newStore.floor]
                                     }
-                                    
+
                                     console.log('Looking for floor:', newStore.floor, 'Found ID:', floorId, 'Available floors:', Object.keys(floorsByFloorCode), 'Stores count:', stores.length)
-                                    
+
                                     if (!floorId) {
                                         alert(`Floor ID not found for floor: ${newStore.floor}`)
                                         return
                                     }
-                                    
+
                                     // Get mall ID - use first mall if no stores exist yet
                                     const firstStore = stores[0]
                                     const mallId = firstStore?.mall_id || (malls[0]?.mall_id) || 1
-                                    
+
                                     // ✅ Optimistic update - add ทันที ไม่รอ backend
                                     const tempId = Date.now()
                                     const optimisticStore = {
@@ -655,30 +655,30 @@ export default function MapEditorDashboard() {
                                         PosX: 0,
                                         PosY: 0
                                     })
-                                    .then(res => {
-                                        const item = res.data.data || { id: res.data.id }
-                                        setStores(prev => prev.map(s => s.id === tempId ? {
-                                            id: item.id ?? tempId,
-                                            name: item.name ?? optimisticStore.name,
-                                            floor: item.floor ?? optimisticStore.floor,
-                                            floor_id: item.floor_id ?? floorId,
-                                            category: item.category?.name ?? item.category ?? optimisticStore.category,
-                                            icon: item.category?.icon ?? categoryObj?.icon ?? '🏪',
-                                            logo: item.logo ?? optimisticStore.logo,
-                                            description: item.description ?? optimisticStore.description,
-                                            position: item.position ?? { x: 0, y: 0 },
-                                            store_category_id: item.store_category_id ?? categoryId,
-                                            mail_id: item.mall_id ?? mallId,
-                                            phone: item.phone || '',
-                                            opening_hours: item.opening_hours || ''
-                                        } : s))
-                                    })
-                                    .catch(err => {
-                                        // Remove optimistic store if request failed
-                                        setStores(prev => prev.filter(s => s.id !== tempId))
-                                        console.error('Add store error:', err)
-                                        alert('Failed to add store: ' + (err.response?.data?.message || err.message))
-                                    })
+                                        .then(res => {
+                                            const item = res.data.data || { id: res.data.id }
+                                            setStores(prev => prev.map(s => s.id === tempId ? {
+                                                id: item.id ?? tempId,
+                                                name: item.name ?? optimisticStore.name,
+                                                floor: item.floor ?? optimisticStore.floor,
+                                                floor_id: item.floor_id ?? floorId,
+                                                category: item.category?.name ?? item.category ?? optimisticStore.category,
+                                                icon: item.category?.icon ?? categoryObj?.icon ?? '🏪',
+                                                logo: item.logo ?? optimisticStore.logo,
+                                                description: item.description ?? optimisticStore.description,
+                                                position: item.position ?? { x: 0, y: 0 },
+                                                store_category_id: item.store_category_id ?? categoryId,
+                                                mail_id: item.mall_id ?? mallId,
+                                                phone: item.phone || '',
+                                                opening_hours: item.opening_hours || ''
+                                            } : s))
+                                        })
+                                        .catch(err => {
+                                            // Remove optimistic store if request failed
+                                            setStores(prev => prev.filter(s => s.id !== tempId))
+                                            console.error('Add store error:', err)
+                                            alert('Failed to add store: ' + (err.response?.data?.message || err.message))
+                                        })
                                 }}
                                 className="px-6 py-2 bg-gray-700 hover:bg-gray-800 text-white text-sm rounded-lg font-medium"
                             >
@@ -763,11 +763,11 @@ export default function MapEditorDashboard() {
                                 <button
                                     onClick={() => {
                                         if (!editStore.name || !editStore.category) return
-                                        
+
                                         // Get category ID from categories
                                         const categoryObj = categories.find(c => c.name === editStore.category)
                                         const categoryId = categoryObj?.id || editStore.store_category_id
-                                        
+
                                         storeAPI.update(editStore.id, {
                                             StoreName: editStore.name,
                                             StoreCategoryName: editStore.category,
@@ -780,34 +780,34 @@ export default function MapEditorDashboard() {
                                             PosX: editStore.position?.x || 0,
                                             PosY: editStore.position?.y || 0
                                         })
-                                        .then(() => {
-                                            // After successful update, fetch the updated store
-                                            return storeAPI.getById(editStore.id)
-                                        })
-                                        .then(res => {
-                                            const updated = res.data.data
-                                            const formattedStore = {
-                                                id: updated.id,
-                                                name: updated.name,
-                                                floor: updated.floor,
-                                                floor_id: updated.floor_id,
-                                                category: updated.category?.name,
-                                                icon: updated.category?.icon || '🏪',
-                                                logo: updated.logo,
-                                                description: updated.description,
-                                                position: updated.position,
-                                                store_category_id: updated.store_category_id,
-                                                phone: updated.phone,
-                                                opening_hours: updated.opening_hours,
-                                                mall_id: updated.mall_id
-                                            }
-                                            setStores(stores.map(s => s.id === editStore.id ? formattedStore : s))
-                                            setEditStore(null)
-                                        })
-                                        .catch(err => {
-                                            console.error('Update error:', err)
-                                            alert('Failed to update store: ' + (err.response?.data?.message || err.message))
-                                        })
+                                            .then(() => {
+                                                // After successful update, fetch the updated store
+                                                return storeAPI.getById(editStore.id)
+                                            })
+                                            .then(res => {
+                                                const updated = res.data.data
+                                                const formattedStore = {
+                                                    id: updated.id,
+                                                    name: updated.name,
+                                                    floor: updated.floor,
+                                                    floor_id: updated.floor_id,
+                                                    category: updated.category?.name,
+                                                    icon: updated.category?.icon || '🏪',
+                                                    logo: updated.logo,
+                                                    description: updated.description,
+                                                    position: updated.position,
+                                                    store_category_id: updated.store_category_id,
+                                                    phone: updated.phone,
+                                                    opening_hours: updated.opening_hours,
+                                                    mall_id: updated.mall_id
+                                                }
+                                                setStores(stores.map(s => s.id === editStore.id ? formattedStore : s))
+                                                setEditStore(null)
+                                            })
+                                            .catch(err => {
+                                                console.error('Update error:', err)
+                                                alert('Failed to update store: ' + (err.response?.data?.message || err.message))
+                                            })
                                     }}
                                     className="px-6 py-2 bg-gray-700 hover:bg-gray-800 text-white text-sm rounded-lg font-medium"
                                 >

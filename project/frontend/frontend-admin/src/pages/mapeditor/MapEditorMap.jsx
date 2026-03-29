@@ -55,6 +55,10 @@ export default function MapEditorMap() {
     useEffect(() => { panStateRef.current = pan }, [pan])
 
     useEffect(() => {
+        localStorage.setItem('mall_areas', JSON.stringify(areas))
+    }, [areas])
+
+    useEffect(() => {
         const el = mapRef.current
         if (!el) return
 
@@ -156,16 +160,14 @@ export default function MapEditorMap() {
                                 panRef.current = { x: 0, y: 0 }
                                 panStateRef.current = { x: 0, y: 0 }
                             }}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border ${
-                                currentFloor === floor.id
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border ${currentFloor === floor.id
                                     ? 'bg-gray-700 text-white border-gray-700'
                                     : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-                            }`}
+                                }`}
                         >
                             {floor.label}
-                            <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                                currentFloor === floor.id ? 'bg-white text-gray-700' : 'bg-gray-100 text-gray-500'
-                            }`}>
+                            <span className={`text-xs px-1.5 py-0.5 rounded-full ${currentFloor === floor.id ? 'bg-white text-gray-700' : 'bg-gray-100 text-gray-500'
+                                }`}>
                                 {storeCount(floor.id)}
                             </span>
                         </button>
@@ -175,9 +177,8 @@ export default function MapEditorMap() {
                 {/* Map Container */}
                 <div
                     ref={mapRef}
-                    className={`relative bg-gray-50 rounded-lg overflow-hidden h-80 border border-gray-100 ${
-                        isPanning ? 'cursor-grabbing' : 'cursor-default'
-                    }`}
+                    className={`relative bg-gray-50 rounded-lg overflow-hidden h-80 border border-gray-100 ${isPanning ? 'cursor-grabbing' : 'cursor-default'
+                        }`}
                 >
                     {/* Zoom label */}
                     <div className="absolute top-3 left-3 bg-white text-xs text-gray-500 px-2 py-1 rounded shadow-sm z-10">
